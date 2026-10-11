@@ -1,0 +1,4 @@
+work/*/frames/
+__pycache__/
+*.pyc
+bv/
