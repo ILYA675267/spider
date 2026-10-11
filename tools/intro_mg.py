@@ -22,7 +22,7 @@ ROOT = mg.ROOT
 
 CHAR = dict(arm_y=(405, 550), cut_L=252, cut_R=556, shoulder_y=478, shoulder_r=42, neck_y=430, jaw_y=(338, 432), feet=(400, 1165), top_y=48,
             pivots={"armL": (268, 492), "armR": (540, 492), "head": (400, 428)})
-CHAR_H = 1.6  # рост персонажа в «метрах» сцены
+CHAR_H = 1.15  # рост персонажа в «метрах» сцены (рассказчик, а не главный объект кадра)
 
 RED = (46, 38, 226)      # BGR
 BLUE = (214, 84, 30)
@@ -44,17 +44,17 @@ SUBS = [  # (начало, конец, текст, выделенное слов
 
 # камера: (время, (облёт°, расстояние, высота, точка взгляда по высоте, угол обзора°), плавность)
 CAMERA = [
-    (0.0, (-35.0, 7.0, 2.6, 1.0, 50.0)),
-    (0.75, (-10.0, 3.5, 1.15, 0.9, 50.0), "out"),
-    (1.3, (-12.0, 3.5, 1.15, 0.92, 50.0)),
-    (2.55, (-20.0, 3.9, 1.25, 1.0, 50.0)),
-    (3.9, (-34.0, 5.0, 1.9, 1.1, 52.0)),
-    (4.28, (-30.0, 4.4, 1.5, 0.95, 52.0)),
-    (4.62, (68.0, 3.9, 1.2, 0.95, 50.0), "expo"),   # резкий облёт на 90°
-    (6.15, (74.0, 3.9, 1.2, 0.95, 50.0)),
-    (6.6, (70.0, 3.2, 1.05, 1.0, 50.0), "out"),     # наезд на «Подписывайся»
-    (8.0, (76.0, 3.1, 1.05, 1.0, 50.0)),
-    (10.0, (90.0, 3.5, 1.15, 0.95, 50.0)),
+    (0.0, (-35.0, 7.0, 2.6, 0.8, 50.0)),
+    (0.75, (-10.0, 3.5, 1.15, 0.7, 50.0), "out"),
+    (1.3, (-12.0, 3.5, 1.15, 0.72, 50.0)),
+    (2.55, (-20.0, 3.9, 1.25, 0.8, 50.0)),
+    (3.9, (-34.0, 5.0, 1.9, 0.9, 52.0)),
+    (4.28, (-30.0, 4.4, 1.5, 0.75, 52.0)),
+    (4.62, (68.0, 3.9, 1.2, 0.75, 50.0), "expo"),   # резкий облёт на 90°
+    (6.15, (74.0, 3.9, 1.2, 0.75, 50.0)),
+    (6.6, (70.0, 3.2, 1.05, 0.8, 50.0), "out"),     # наезд на «Подписывайся»
+    (8.0, (76.0, 3.1, 1.05, 0.8, 50.0)),
+    (10.0, (90.0, 3.5, 1.15, 0.75, 50.0)),
 ]
 # сдвиг кадра вбок (в метрах): персонаж уступает место вставке
 OFFSET = [(0.0, 0.0), (1.25, 0.0), (1.6, -0.55, "inout"), (3.6, -0.5), (4.1, 0.0, "inout"), (4.6, 0.6, "expo"),
@@ -243,7 +243,7 @@ class Scene:
         facing = math.degrees(lag_cam.yaw) + track(TURN, t)
         hgt_m = p.Hc * self.px_to_m
         shadow_k = clamp(1 - y / 2.0)
-        mg.floor_blob(frame, cam, (0, 0), 0.5 * (0.6 + 0.4 * shadow_k), 0.32 * (0.6 + 0.4 * shadow_k), 0.75 * shadow_k, blur=41)
+        mg.floor_blob(frame, cam, (0, 0), 0.38 * (0.6 + 0.4 * shadow_k), 0.24 * (0.6 + 0.4 * shadow_k), 0.75 * shadow_k, blur=41)
         items.append((cam.depth((0, 0.8, 0)), lambda: mg.billboard(frame, cam, (0, y, 0), hgt_m, canvas,
                                                                      facing_yaw=facing, anchor=self.anchor, squash=(sx, sy))))
 
@@ -254,7 +254,7 @@ class Scene:
             s = max(0.001, k_in * (1 - mg.smooth(k_out)))
             r15 = np.array([math.cos(math.radians(-15)), 0, math.sin(math.radians(-15))])
             tc15 = np.array([math.sin(math.radians(-15)), 0, -math.cos(math.radians(-15))])
-            base = -r15 * 1.0 + tc15 * 0.35 + np.array([0, 1.25, 0])
+            base = -r15 * 0.9 + tc15 * 0.35 + np.array([0, 1.0, 0])
             pos = base + np.array([0, -0.6 * (1 - k_in) - 0.8 * k_out, 0]) + np.array([0, 0.03 * math.sin(t * 2.2), 0])
             yaw = 15 + 28 - 25 * (1 - k_in) + 40 * k_out
             items.append((cam.depth(pos), lambda pos=pos, s=s, yaw=yaw: (
@@ -297,7 +297,7 @@ class Scene:
                 items.append((cam.depth(cen), draw_bar))
             k = out_back((t - 4.7) / 0.5) * (1 - gone)
             if k > 0.01:
-                pos = right * 0.86 - back * 0.15 + np.array([0, 1.62 + 0.03 * math.sin(t * 2), 0])
+                pos = right * 0.86 - back * 0.15 + np.array([0, 1.45 + 0.03 * math.sin(t * 2), 0])
                 items.append((cam.depth(pos), lambda pos=pos, k=k: mg.panel(
                     frame, cam, pos, -70 + 12, 0.95 * k, 0.25 * k, 0.06 * k, self.tex["title"], pitch=-6, roll=2,
                     side=(70, 60, 70), edge=(200, 200, 230))))
@@ -310,7 +310,7 @@ class Scene:
             press = 0.0
             if 7.3 < t < 7.5:
                 press = math.sin(math.pi * (t - 7.3) / 0.2)
-            pos = -right * 0.62 + tocam * 0.45 + np.array([0, 1.05 + 0.02 * math.sin(t * 3), 0])
+            pos = -right * 0.55 + tocam * 0.45 + np.array([0, 0.8 + 0.02 * math.sin(t * 3), 0])
             tex = self.tex["btn2"] if t > 7.4 else self.tex["btn"]
             s = k * (1 - 0.12 * press)
             items.append((cam.depth(pos), lambda pos=pos, s=s, tex=tex: (
