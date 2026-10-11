@@ -4,3 +4,4 @@ __pycache__/
 bv/
 *.video.mp4
 *.sfx.wav
+*_chat.mp4
