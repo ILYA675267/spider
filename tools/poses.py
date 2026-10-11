@@ -26,6 +26,8 @@ ARM = {
     "wave_a":    {"shoulder": (0, -70, 0),    "elbow": (0, -85, 0), "wrist": (0, 0, 0),  "hand": "open"},
     "wave_b":    {"shoulder": (0, -70, 0),    "elbow": (0, -55, 0), "wrist": (0, 0, 0),  "hand": "open"},
     "open":      {"shoulder": (-35, -30, 0),  "elbow": (-55, 0, 0), "wrist": (0, 0, -70), "hand": "open"},
+    "chest":     {"shoulder": (-30, -25, -80),   "elbow": (-110, 0, 0), "wrist": (0, 0, 0), "hand": "open"},
+    "cheer":     {"shoulder": (-10, -140, 0), "elbow": (-25, 0, 0), "wrist": (0, 0, 0),  "hand": "fist"},
     "think":     {"shoulder": (-50, -10, 0),  "elbow": (-140, 0, 0), "wrist": (0, 0, 0), "hand": "fist"},
 }
 
