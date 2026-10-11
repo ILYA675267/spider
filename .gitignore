@@ -2,3 +2,5 @@ work/*/frames/
 __pycache__/
 *.pyc
 bv/
+*.video.mp4
+*.sfx.wav
