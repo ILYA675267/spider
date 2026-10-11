@@ -376,8 +376,11 @@ class Scene:
         canvas = p.render(armL=track(ARM_L, t) + 3 * wobble(t * 1.7, 11), armR=track(ARM_R, t) + 3 * wobble(t * 1.5, 12),
                           head=track(HEAD, t) + 2.5 * wobble(t * 1.3, 7) + 3 * env * math.sin(t * 9),
                           jaw=clamp(env * 1.3), head_dy=-8 * env)
-        lag = self.cam(max(0.0, t - 0.12))
-        facing = math.degrees(lag.yaw)
+        # персонаж разворачивается к камере с небольшим запозданием, но не больше чем на 30° —
+        # иначе на резком облёте он на миг становится «ребром» (тонкой полоской)
+        now = math.degrees(cam.yaw)
+        lagd = math.degrees(self.cam(max(0.0, t - 0.12)).yaw)
+        facing = now + max(-30.0, min(30.0, lagd - now))
         hgt_m = p.Hc * self.px_to_m
         sk = clamp(1 - y / 1.5)
         mg.floor_blob(frame, cam, (0, 0), 0.34 * (0.6 + 0.4 * sk), 0.22 * (0.6 + 0.4 * sk), 0.6 * sk, blur=51)
