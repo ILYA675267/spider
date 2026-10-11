@@ -259,7 +259,8 @@ def box(frame, cam, center, size, height, color, base_y=0.0, edge=None, yaw=0.0,
         cv2.add(frame, g, frame)
 
 
-def panel(frame, cam, center, yaw, w, h, thick, tex, pitch=0.0, roll=0.0, side=(40, 40, 50), edge=None):
+def panel(frame, cam, center, yaw, w, h, thick, tex, pitch=0.0, roll=0.0, side=(40, 40, 50), edge=None,
+          back_tex=None):
     """Объёмная карточка: картинка-лицо + толщина-бортик. tex — float BGRA премульт."""
     a, b, c = math.radians(yaw), math.radians(pitch), math.radians(roll)
     Ry = np.array([[math.cos(a), 0, math.sin(a)], [0, 1, 0], [-math.sin(a), 0, math.cos(a)]])
@@ -282,12 +283,21 @@ def panel(frame, cam, center, yaw, w, h, thick, tex, pitch=0.0, roll=0.0, side=(
     if facing:
         warp_onto(frame, tex, uvf)
     else:
-        poly(frame, uvb, tuple(c * 0.7 for c in side))
+        if back_tex is not None:
+            warp_onto(frame, back_tex, uvb[[1, 0, 3, 2]])
+        else:
+            poly(frame, uvb, tuple(c * 0.7 for c in side))
 
 
 def billboard(frame, cam, pos, height, tex, facing_yaw=None, anchor=(0.5, 1.0), squash=(1.0, 1.0)):
     """Плоская картинка в мире, развёрнутая к камере (или под углом facing_yaw)."""
     hh, ww = tex.shape[:2]
+    d = max(0.3, cam.depth(pos))
+    px = height * squash[1] * cam.focal / d  # примерная высота на экране в пикселях
+    if px < hh * 0.85:
+        k = max(px * 1.15 / hh, 0.05)
+        tex = cv2.resize(tex, (max(2, int(ww * k)), max(2, int(hh * k))), interpolation=cv2.INTER_AREA)
+        hh, ww = tex.shape[:2]
     a = cam.yaw if facing_yaw is None else math.radians(facing_yaw)
     right = np.array([math.cos(a), 0.0, math.sin(a)])
     up = np.array([0.0, 1.0, 0.0])
@@ -340,8 +350,13 @@ class Room:
     радиуса R, пол — сплошная плоскость. Стык стены и пола получается геометрически точным:
     каждый пиксель кадра — луч из камеры, который попадает либо в пол, либо в стену."""
 
-    def __init__(self, path, radius=9.0, tiles=12, dim=0.72, floor_color=(16, 13, 18)):
-        tex = cv2.imread(path).astype(np.float32) * dim
+    def __init__(self, path, radius=9.0, tiles=12, dim=0.72, floor_color=(16, 13, 18), upscale=3):
+        src = cv2.imread(path)
+        if upscale > 1:  # аккуратное увеличение один раз — линии сетки на стене не мылятся
+            src = cv2.resize(src, None, fx=upscale, fy=upscale, interpolation=cv2.INTER_LANCZOS4)
+            blur = cv2.GaussianBlur(src, (0, 0), 1.2 * upscale)
+            src = cv2.addWeighted(src, 1.6, blur, -0.6, 0)
+        tex = src.astype(np.float32) * dim
         self.tex = tex
         self.th, self.tw = tex.shape[:2]
         self.R = radius
@@ -517,7 +532,7 @@ class Puppet:
         hd = self.parts["head"]
         if jaw > 0.01:
             y0, y1 = self.jaw
-            s = 1.0 + 0.12 * jaw
+            s = 1.0 + 0.2 * jaw
             region = hd[y0 - 2:y1 + 40]
             hgt = region.shape[0]
             mapy = (np.arange(int(hgt * s)) / s).astype(np.float32)
@@ -536,8 +551,50 @@ class Puppet:
             sh[6:, :-7] = a[:-6, 7:]
             edge = np.clip(a - sh, 0, 1) * rim
             edge = cv2.GaussianBlur(edge, (7, 7), 0) * a
-            out[..., :3] += edge[..., None] * 0.35
+            out[..., :3] += edge[..., None] * 0.18
         return out
+
+
+# ---------------------------------------------------------------- субтитры
+def subtitles(frame, t, subs, y=1560, accent=(226, 38, 46)):
+    """subs: [(начало, текст, выделенные слова)] — фраза держится до начала следующей.
+    Фраза «выпрыгивает», ключевые слова — в цветной плашке (accent — RGB)."""
+    for j, item in enumerate(subs):
+        t0, text = item[0], item[1]
+        keys = item[2] if len(item) > 2 else ()
+        acc = item[3] if len(item) > 3 else accent
+        end = subs[j + 1][0] if j + 1 < len(subs) else t0 + 1.4
+        if not (t0 <= t < end) or not text:
+            continue
+        k = out_back((t - t0) / 0.16)
+        fade = clamp((end - t) / 0.06)
+        size = 104
+        words = text.split()
+        im = Image.new("RGBA", (W, 260), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        while True:  # подбираем размер, чтобы фраза целиком влезала в кадр с полями
+            f = font(size)
+            space = size * 0.28
+            widths = [d.textbbox((0, 0), w_, font=f)[2] for w_ in words]
+            total = sum(widths) + space * (len(words) - 1) + 32 * sum(
+                1 for w_ in words if w_.strip("«»,.!?:—-") in keys or w_ in keys)
+            if total <= W - 110 or size <= 56:
+                break
+            size -= 4
+        x = (W - total) / 2
+        for w_, ww in zip(words, widths):
+            if w_.strip("«»,.!?:—-") in keys or w_ in keys:
+                d.rounded_rectangle([x - 16, 40, x + ww + 16, 60 + size * 1.12], 22, fill=tuple(acc) + (255,))
+                d.text((x, 48), w_, font=f, fill="white")
+            else:
+                d.text((x + 5, 53), w_, font=f, fill=(0, 0, 0, 170))
+                d.text((x, 48), w_, font=f, fill="white", stroke_width=3, stroke_fill=(0, 0, 0))
+            x += ww + space
+        arr = premul(im) * fade
+        sc = 0.55 + 0.45 * k
+        arr = cv2.resize(arr, None, fx=sc, fy=sc, interpolation=cv2.INTER_LINEAR)
+        h, w = arr.shape[:2]
+        over(frame, arr, (W - w) // 2, int(y - h / 2 + (1 - k) * 40))
 
 
 # ---------------------------------------------------------------- звук
@@ -604,7 +661,7 @@ class Writer:
     def __init__(self, path, fps):
         self.p = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24",
                                    "-s", f"{W}x{H}", "-r", str(fps), "-i", "-", "-c:v", "libx264", "-preset", "medium",
-                                   "-crf", "18", "-pix_fmt", "yuv420p", path], stdin=subprocess.PIPE)
+                                   "-crf", "15", "-pix_fmt", "yuv420p", path], stdin=subprocess.PIPE)
 
     def write(self, frame):
         self.p.stdin.write(frame.tobytes())
