@@ -69,10 +69,10 @@ CAMERA = [
     (33.75, (350.0, 3.6, 1.2, 0.84, 50.0), "expo"), (40.1, (362.0, 3.7, 1.25, 0.84, 50.0)),
     (40.5, (420.0, 3.6, 1.2, 0.86, 50.0), "expo"), (48.0, (432.0, 3.6, 1.2, 0.86, 50.0)),
     (48.7, (436.0, 3.0, 1.75, 0.7, 50.0), "out"), (50.8, (441.0, 3.1, 1.75, 0.7, 50.0)),  # прожектор: сверху
-    (51.2, (520.0, 3.9, 1.25, 0.98, 50.0), "expo"), (DUR, (531.0, 3.7, 1.2, 0.98, 50.0)),
+    (51.2, (520.0, 4.0, 1.3, 1.05, 50.0), "expo"), (DUR, (526.0, 3.3, 1.25, 1.1, 50.0)),
 ]
 OFFSET = [(0.0, 0.5), (4.45, 0.5), (4.95, 0.0, "expo"), (6.0, 0.0), (6.4, 0.55, "inout"),
-          (48.2, 0.55), (48.7, 0.0, "out"), (50.8, 0.0), (51.2, 0.5, "expo"), (DUR, 0.5)]
+          (48.2, 0.55), (48.7, 0.0, "out"), (50.8, 0.0), (51.2, 0.42, "expo"), (DUR, 0.42)]
 # основной угол каждой сцены — вокруг него расставляются вставки
 SEC = {"hook": -9, "brain": 106, "danger": 207, "adren": 272, "replay": 356, "study": 426, "spot": 438, "tg": 527}
 
@@ -85,7 +85,7 @@ ARM_L = G((0, 62), (4.5, 62), (4.75, -50, "back"), (5.6, -45), (6.0, 62, "back")
           (33.8, 62), (34.0, 42, "back"), (35.6, 45), (35.9, 62), (36.6, 62), (36.8, -10, "back"), (38.3, -12),
           (38.6, 62), (40.5, 62), (40.65, -42, "back"), (41.3, -40), (41.6, 62), (47.4, 62), (47.6, 32, "back"),
           (48.3, 35), (48.6, 58), (50.9, 58), (54.9, 62), (55.1, 40, "back"), (56.0, 42), (56.3, 62),
-          (58.0, 62), (58.15, -50, "back"), (58.8, -45), (DUR, -48))
+          (58.0, 62), (58.15, -50, "back"), (58.8, -45), (59.1, 62, "back"), (DUR, 62))
 ARM_R = G((0, 62), (0.9, 62), (1.1, -30, "back"), (2.4, -28), (2.65, 22, "back"), (3.3, 25), (3.45, 35, "back"),
           (4.45, 35), (4.75, -50, "back"), (5.6, -45), (6.0, 62, "back"), (6.3, 62), (6.5, -12, "back"), (8.0, -10),
           (8.5, 40, "back"), (9.2, 15, "back"), (10.8, 12), (11.0, 25, "back"), (12.9, 25), (13.25, -15, "back"),
@@ -98,14 +98,14 @@ ARM_R = G((0, 62), (0.9, 62), (1.1, -30, "back"), (2.4, -28), (2.65, 22, "back")
           (40.65, -42, "back"), (41.3, -40), (42.0, -15, "back"), (44.7, -15), (44.95, -40, "back"), (46.1, -38),
           (46.35, 15, "back"), (47.4, 15), (47.6, 32, "back"), (48.3, 35), (48.6, 58), (50.9, 58),
           (51.3, -20, "back"), (53.7, -18), (53.95, -32, "back"), (56.8, -30), (57.05, 20, "back"), (57.9, 22),
-          (58.15, -50, "back"), (58.8, -45), (DUR, -48))
+          (58.15, -50, "back"), (58.8, -45), (58.95, -58), (59.1, -32), (59.25, -58), (59.4, -32), (59.55, -58),
+          (59.7, -40), (DUR, 62))
 HEAD = G((0, 0), (1.1, -6), (2.6, 6), (3.4, 8), (4.5, 0), (6.3, -5), (9.2, -7), (11.0, -9), (13.2, 3),
          (14.8, -6), (15.9, 0), (16.2, 6), (17.2, -6), (18.7, -7), (21.0, 8), (22.5, 0), (23.3, -6), (25.0, 4),
          (25.9, -6), (28.4, -8), (30.3, 0), (31.7, -6), (33.6, 0), (34.0, 7), (36.0, -5), (38.6, -7), (40.6, 3),
          (42.0, -6), (45.0, -8), (46.4, -9), (47.6, 8), (48.6, 10), (50.9, 6), (51.3, -6), (54.0, -7), (55.1, 5),
          (57.0, -8), (58.2, 0), (59.0, -5), (DUR, 0))
-JUMPS = [4.8, 30.3, 40.6]
-JUMP_IN = 58.3  # Паучок прыгает в норку
+JUMPS = [4.8, 30.3, 40.6, 58.2]
 
 
 def char_motion(t):
@@ -255,6 +255,78 @@ def tg_button(pressed):
     return mg.premul(im)
 
 
+def tg_glass_card():
+    """Карточка канала в стиле INSTA, тёмная: круглая аватарка в голубом ободке, круглый значок Telegram,
+    название, подпись; кнопка — отдельная объёмная пилюля перед карточкой."""
+    W_, H_ = 920, 600
+    im = Image.new("RGBA", (W_, H_), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle([0, 0, W_ - 1, H_ - 1], 56, fill=(20, 22, 32, 238), outline=(80, 90, 120, 255), width=3)
+    # мягкий голубой отсвет внутри стекла сверху-слева
+    glow = Image.new("RGBA", (W_, H_), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse([-120, -160, 520, 300], fill=TG_RGB + (70,))
+    from PIL import ImageFilter
+    glow = glow.filter(ImageFilter.GaussianBlur(70))
+    mask = Image.new("L", (W_, H_), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, W_ - 1, H_ - 1], 56, fill=255)
+    im.paste(Image.alpha_composite(im, glow), (0, 0), mask)
+    d = ImageDraw.Draw(im)
+    # аватарка
+    av = Image.open(os.path.join(ROOT, "output", "avatar.png")).convert("RGBA").resize((190, 190), Image.LANCZOS)
+    m = Image.new("L", (190, 190), 0)
+    ImageDraw.Draw(m).ellipse([0, 0, 189, 189], fill=255)
+    cx = W_ // 2
+    d.ellipse([cx - 108, 34, cx + 108, 250], fill=TG_RGB + (255,))
+    d.ellipse([cx - 101, 41, cx + 101, 243], fill=(20, 22, 32, 255))
+    im.paste(av, (cx - 95, 47), m)
+    # круглый значок Telegram на аватарке
+    logo = Image.open(os.path.join(ROOT, "assets", "logos", "telegram.png")).convert("RGBA").resize((74, 74), Image.LANCZOS)
+    d.ellipse([cx + 50, 172, cx + 132, 254], fill=(20, 22, 32, 255))
+    im.alpha_composite(logo, (cx + 54, 176))
+    f1 = mg.font(74)
+    t1 = "Паучья Норка"
+    w1 = d.textbbox((0, 0), t1, font=f1)[2]
+    d.text((cx - w1 / 2, 272), t1, font=f1, fill="white")
+    f2 = mg.font(40)
+    a_, b_ = "Telegram-канал · ", "ссылка в профиле"
+    wa, wb = d.textbbox((0, 0), a_, font=f2)[2], d.textbbox((0, 0), b_, font=f2)[2]
+    x0 = cx - (wa + wb) / 2
+    d.text((x0, 372), a_, font=f2, fill=(150, 155, 175))
+    d.text((x0 + wa, 372), b_, font=f2, fill=TG_RGB)
+    return mg.premul(im)
+
+
+def tg_pill(text, pressed=False):
+    """Кнопка-пилюля с градиентом и значком Telegram (как в INSTA)."""
+    W_, H_ = 640, 150
+    im = Image.new("RGBA", (W_, H_), (0, 0, 0, 0))
+    grad = Image.new("RGBA", (W_, H_))
+    top, mid, bot = ((70, 190, 245), TG_RGB, (31, 147, 209)) if not pressed else ((90, 90, 104), (64, 64, 76), (48, 48, 58))
+    gd = ImageDraw.Draw(grad)
+    for y in range(H_):
+        k = y / H_
+        c = [int(top[i] + (mid[i] - top[i]) * k / 0.6) if k < 0.6 else int(mid[i] + (bot[i] - mid[i]) * (k - 0.6) / 0.4) for i in range(3)]
+        gd.line([(0, y), (W_, y)], fill=tuple(c) + (255,))
+    m = Image.new("L", (W_, H_), 0)
+    ImageDraw.Draw(m).rounded_rectangle([0, 0, W_ - 1, H_ - 1], H_ // 2, fill=255)
+    im.paste(grad, (0, 0), m)
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle([18, 6, W_ - 19, 12], 3, fill=(255, 255, 255, 90))  # блик сверху
+    f = mg.font(62)
+    tw = d.textbbox((0, 0), text, font=f)[2]
+    icon = 64
+    x0 = (W_ - (icon + 22 + tw)) / 2
+    # белый круг с голубым самолётиком (значок круглый)
+    logo = Image.open(os.path.join(ROOT, "assets", "logos", "telegram.png")).convert("RGBA").resize((icon, icon), Image.LANCZOS)
+    arr = np.asarray(logo).copy()
+    blue = (arr[..., 2] > 150) & (arr[..., 0] < 120)
+    arr[..., :3][blue] = 255
+    arr[..., :3][~blue & (arr[..., 3] > 0)] = np.array(mid if not pressed else (64, 64, 76))
+    im.alpha_composite(Image.fromarray(arr), (int(x0), (H_ - icon) // 2))
+    d.text((x0 + icon + 22, (H_ - 76) / 2), text, font=f, fill="white")
+    return mg.premul(im)
+
+
 def neon(text, color=TG_RGB):
     """Неоновая вывеска: белые буквы с голубым свечением."""
     f = mg.font(130, tall=True)
@@ -325,6 +397,11 @@ class Scene:
         T["btn"], T["btn2"] = tg_button(False), tg_button(True)
         T["plane"] = plane_tex()
         T["neon"] = neon("ПАУЧЬЯ НОРКА")
+        T["tgcard"] = tg_glass_card()
+        T["pill"], T["pill2"] = tg_pill("Подписаться"), tg_pill("Ты в норке!", True)
+        fing = cv2.imread(os.path.join(ROOT, "assets", "finger_3d.png"), cv2.IMREAD_UNCHANGED)
+        fing = cv2.resize(fing, (384, 384), interpolation=cv2.INTER_LANCZOS4).astype(np.float32) / 255
+        T["finger"] = np.concatenate([fing[..., :3] * fing[..., 3:], fing[..., 3:]], -1).astype(np.float32)
         T["excl"] = stamp("ЭКСКЛЮЗИВ", TG_RGB)
         T["arrow"] = arrow_tex()
         self.txt = {}
@@ -381,9 +458,6 @@ class Scene:
         mg.floor_blob(frame, cam, (0, 0), 1.1, 1.1, 0.2 * (1 - spot), color=glow_col, blur=151, mode="light")
         mg.floor_grid(frame, cam, step=0.75, extent=9, base=110, fade=11, radius=8.9, mask=self.room.floor_mask)
 
-        kh = self.hole_open(t)
-        if kh > 0:
-            self.draw_hole(cam, t, kh)
         items = []
         self.items_for(t, cam, items)
 
@@ -402,14 +476,6 @@ class Scene:
         # персонаж
         y, sx, sy = char_motion(t)
         cx, cz, vis = 0.0, 0.0, 1.0
-        if t > JUMP_IN:  # разбег-прыжок по дуге и «ныряние» в норку
-            q = clamp((t - JUMP_IN) / 0.7)
-            hole = self.hole_pos()
-            e = mg.in_out_cubic(q)
-            cx, cz = hole[0] * e, hole[2] * e
-            y = 0.55 * math.sin(math.pi * min(q / 0.75, 1.0)) - (0.6 * ((q - 0.75) / 0.25) if q > 0.75 else 0.0)
-            vis = 1 - smooth((q - 0.72) / 0.28)
-            sx, sy = 0.92 + 0.08 * vis, 1.08 if q < 0.75 else 1.0
         env = self.env[min(len(self.env) - 1, int(t * FPS))]
         p = self.puppet
         canvas = p.render(armL=track(ARM_L, t) + 3 * wobble(t * 1.7, 11), armR=track(ARM_R, t) + 3 * wobble(t * 1.5, 12),
@@ -592,98 +658,51 @@ class Scene:
             self.add_panel(it, cam, pos, face(SEC["spot"], 0), 0.84 * k, 0.41 * k, 0.07 * k, T["spot"], pitch=-18,
                            side=(90, 50, 40), edge=(255, 210, 190))
 
-        # 8. Концовка: норка-портал «Паучья Норка» в полу, из неё поднимается Telegram
+        # 8. Концовка в стиле INSTA, тёмная: стеклянная карточка канала, свечение, кнопка, палец нажимает
         y0 = SEC["tg"]
-        hole = self.hole_pos()
-        k = pop(t, 51.45, DUR + 1)
-        if k > 0:  # значок Telegram-монета вылетает из норки и зависает сверху
-            rise = out_back(clamp((t - 51.45) / 0.9), s=1.3)
-            pos = hole * (1 - rise) + place(y0, 0.95, 2.12) * rise + [0, -0.5 * (1 - rise) + 0.04 * math.sin(t * 2.5), 0]
-            self.add_panel(it, cam, pos, face(y0, 0) + (t - 51.45) * 170, 0.42 * k, 0.42 * k, 0.07 * k, T["logo"],
-                           side=(150, 100, 20), back_tex=T["logo"])
-        kc = clamp((t - 52.8) / 0.75)
-        if kc > 0:  # карточка канала поднимается из норки, как на лифте
-            e = out_back(kc, s=1.2)
-            top = place(y0, 0.78, 1.5) + [0, 0.03 * math.sin(t * 2), 0]
-            pos = hole + (top - hole) * e + [0, -0.4 * (1 - e), 0]
-            s_ = 0.55 + 0.45 * e
-            self.add_panel(it, cam, pos, face(y0, 12 - 30 * (1 - e)), 0.88 * s_, 0.537 * s_, 0.06 * s_, T["tg"],
-                           pitch=-5, side=(70, 55, 40), edge=(255, 220, 160))
+        k = clamp((t - 51.35) / 0.8)
+        if k > 0:
+            e = out_back(k, s=1.25)
+            r_, c_ = basis(y0)
+            card = place(y0, 0.5, 1.72) + [0, -0.9 * (1 - e) + 0.02 * math.sin(t * 1.5), 0]
+            tilt = 4 + 3 * math.sin(t * 1.5)
+            s_ = 0.85 + 0.15 * e
+            # голубое и тёплое свечение за карточкой
+            it.append((cam.depth(card) + 0.3, lambda card=card, e=e: self.glow_behind(cam, card, y0, e)))
+            self.add_panel(it, cam, card, face(y0, 6 - 20 * (1 - e)), 0.92 * s_, 0.6 * s_, 0.05 * s_, T["tgcard"],
+                           pitch=-tilt, side=(60, 50, 40), edge=(255, 220, 170), radius=0.92 * s_ * 0.061)
+            # кнопка — отдельная объёмная пилюля чуть впереди
+            tap = 0.0
+            if 58.0 < t < 58.3:
+                tap = math.sin(math.pi * (t - 58.0) / 0.3)
+            pulse = 1 + 0.035 * math.sin((t - 52.8) * 6) * (1 if t > 52.8 else 0)
+            bpos = card + c_ * 0.06 + [0, -0.265 * s_, 0]
+            sb = s_ * pulse * (1 - 0.08 * tap)
+            tex = T["pill2"] if t > 58.15 else T["pill"]
+            self.add_panel(it, cam, bpos, face(y0, 6 - 20 * (1 - e)), 0.56 * sb, 0.131 * sb, 0.05 * sb, tex,
+                           pitch=-tilt, side=(150, 100, 20) if t <= 58.15 else (50, 50, 60), radius=0.131 * sb / 2)
             ke = pop(t, 55.05, DUR + 1, 0.3)
             if ke > 0:  # штамп «ЭКСКЛЮЗИВ» на углу карточки
-                r_, c_ = basis(y0)
-                self.add_bb(it, cam, top + r_ * 0.15 + c_ * 0.12 + [0, 0.36, 0], 0.14 * ke * (1 + 0.8 * (1 - clamp((t - 55.05) / 0.15))),
-                            T["excl"], anchor=(0.5, 0.5))
-        kn = pop(t, 53.9, 57.0, 0.4, 0.25)
-        if kn > 0:  # неоновая вывеска с названием
-            flick = 1.0 if t > 54.3 else (0.4 + 0.6 * (math.sin(t * 70) > 0))
-            self.add_bb(it, cam, place(y0, 0.8, 0.98, 0.15), 0.15 * kn, T["neon"] * flick, anchor=(0.5, 0.5))
-        if 55.0 < t < 57.4:  # стайка самолётиков вылетает из норки по спирали
-            r_, c_ = basis(y0)
-            for i in range(6):
-                q = (t - 55.0 - 0.17 * i) / 1.5
-                if not 0 < q < 1:
-                    continue
-                th = 5.5 * q + i * 1.1
-                rad = 0.25 + 0.55 * q
-                pos = hole + r_ * rad * math.cos(th) + c_ * rad * math.sin(th) + [0, 2.3 * q, 0]
-                self.add_bb(it, cam, pos, 0.1 * (1 - 0.3 * q), T["plane"], anchor=(0.5, 0.5))
-        ka = pop(t, 57.05, 58.2, 0.3, 0.2)
-        if ka > 0:  # стрелка вверх — «ссылка в профиле»
-            self.add_bb(it, cam, place(y0, 0.0, 1.5 + 0.08 * abs(math.sin(t * 7)), 0.0), 0.2 * ka, T["arrow"],
-                        anchor=(0.5, 0.5))
-        kb = pop(t, 57.05, DUR + 1, 0.4)
-        if kb > 0:
-            press = math.sin(math.pi * (t - 58.05) / 0.2) if 58.05 < t < 58.25 else 0.0
-            tex = T["btn2"] if t > 58.15 else T["btn"]
-            pos = place(y0, 0.8, 0.95, 0.15) + [0, 0.02 * math.sin(t * 3), 0]
-            s_ = kb * (1 - 0.12 * press)
-            self.add_panel(it, cam, pos, face(y0, 10), 0.7 * s_, 0.184 * s_, 0.11 * s_, tex, pitch=-10,
-                           side=(150, 100, 20) if t <= 58.15 else (50, 50, 58), edge=(255, 230, 190))
+                self.add_bb(it, cam, card + r_ * 0.42 + c_ * 0.08 + [0, 0.3, 0],
+                            0.11 * ke * (1 + 0.8 * (1 - clamp((t - 55.05) / 0.15))), T["excl"], anchor=(0.5, 0.5))
+            kf = clamp((t - 57.1) / 0.6)  # палец подъезжает снизу-справа и нажимает кнопку
+            if kf > 0:
+                ef = out_back(kf, s=1.1)
+                fpos = bpos + r_ * (0.16 + 0.35 * (1 - ef)) + c_ * 0.1 + [0, -0.1 - 0.35 * (1 - ef) + 0.06 * tap, 0]
+                self.add_bb(it, cam, fpos, 0.17 * ef, T["finger"], anchor=(0.5, 0.15))
 
-    def hole_pos(self):
-        return place(SEC["tg"], 0.85, 0.0, -1.0)
-
-    def hole_open(self, t):
-        """Норка открывается после облёта и захлопывается, когда в неё нырнул Паучок."""
-        return out_back(clamp((t - 51.3) / 0.5), s=1.4) * (1 - mg.in_out_cubic(clamp((t - 59.05) / 0.3)))
-
-    def draw_hole(self, cam, t, k):
-        """Круглая светящаяся норка в полу: чёрная глубина, голубой ободок, кольца внутри и луч света вверх."""
-        c = self.hole_pos()
-        r = 0.42 * k
-        a = np.linspace(0, 2 * math.pi, 56, endpoint=False)
-
-        def ring(rad, yy):
-            return np.stack([c[0] + rad * np.cos(a), np.full_like(a, yy), c[2] + rad * np.sin(a)], -1)
-
-        uv, z = cam.proj(ring(r, 0.0))
-        if (z < 0.3).any() or r < 0.01:
-            return
-        fr = self.frame
-        lay = np.zeros((H, W), np.float32)
-        mg.poly(lay, uv, 1.0)
-        lay = cv2.GaussianBlur(lay, (0, 0), 2)
-        fr[...] = (fr.astype(np.float32) * (1 - 0.92 * lay[..., None])).astype(np.uint8)
-        glow = np.zeros_like(fr)
-        for i, (rad, yy) in enumerate(((0.8, -0.12), (0.6, -0.26), (0.4, -0.42))):  # «стенки» уходят вглубь
-            u2, z2 = cam.proj(ring(r * rad, yy))
-            if (z2 > 0.3).all():
-                mg.lines(glow, u2, tuple(int(v * (0.5 - 0.13 * i)) for v in TG), 3)
-        pulse = 0.8 + 0.2 * math.sin(t * 6)
-        mg.lines(glow, uv, tuple(int(v * pulse) for v in TG), 7)
-        g = cv2.GaussianBlur(glow, (0, 0), 9)
-        cv2.add(fr, g, fr)
-        cv2.add(fr, g, fr)
-        cv2.add(fr, glow, fr)
-        # мягкий луч света из норки вверх
-        top = ring(r * 0.55, 2.0)
-        u3, z3 = cam.proj(np.vstack([ring(r, 0.0), top]))
-        if (z3 > 0.3).all():
-            sh = np.zeros((H, W), np.float32)
-            mg.poly(sh, cv2.convexHull(u3.astype(np.float32)).reshape(-1, 2), 1.0)
-            sh = cv2.GaussianBlur(sh, (0, 0), 25) * 0.08 * k
-            fr[...] = np.clip(fr.astype(np.float32) + sh[..., None] * np.array(TG, np.float32), 0, 255).astype(np.uint8)
+    def glow_behind(self, cam, card, yaw, e):
+        """Мягкие пятна света за стеклянной карточкой: голубое сверху-слева, тёплое снизу-справа."""
+        r_, _ = basis(yaw)
+        for off, col, rad in ((r_ * -0.35 + [0, 0.22, 0], TG, 0.42), (r_ * 0.38 + [0, -0.25, 0], (100, 150, 255), 0.36)):
+            uv, z = cam.proj(np.array([card + off]))
+            if z[0] < 0.3:
+                continue
+            pr = rad * cam.focal / z[0]
+            lay = np.zeros((H, W), np.float32)
+            cv2.circle(lay, (int(uv[0][0]), int(uv[0][1])), int(pr), 1.0, -1)
+            lay = cv2.GaussianBlur(lay, (0, 0), pr * 0.45 + 1) * 0.35 * e
+            self.frame[...] = np.clip(self.frame.astype(np.float32) + lay[..., None] * np.array(col, np.float32), 0, 255).astype(np.uint8)
 
     # ------------------------------------------------------------ особые эффекты
     def ekg(self, cam, center, yaw, t, k):
@@ -733,7 +752,7 @@ class Scene:
     def finish(self, frame, t):
         f = frame.astype(np.float32)
         flash = 0.0
-        for s0, amp in ((4.7, 0.18), (15.6, 0.1), (22.8, 0.1), (33.5, 0.1), (40.2, 0.1), (50.95, 0.12), (59.1, 0.22)):
+        for s0, amp in ((4.7, 0.18), (15.6, 0.1), (22.8, 0.1), (33.5, 0.1), (40.2, 0.1), (50.95, 0.12)):
             if s0 < t < s0 + 0.25:
                 flash = max(flash, math.sin(math.pi * (t - s0) / 0.25) * amp)
         if flash:
@@ -749,8 +768,7 @@ SFX = [(0.0, "whoosh"), (0.95, "pop"), (2.75, "pop"), (3.9, "whoosh"), (4.55, "w
        (23.95, "pop"), (25.75, "pop"), (28.35, "pop"), (30.15, "boom"), (32.85, "pop"), (33.4, "whoosh"),
        (36.55, "whoosh"), (37.6, "pop"), (38.3, "pop"), (38.55, "pop"), (38.8, "pop"), (40.15, "whoosh"),
        (40.55, "pop"), (43.3, "pop"), (44.9, "pop"), (47.0, "pop"), (48.4, "rumble"), (49.3, "pop"),
-       (50.9, "whoosh"), (51.3, "rumble"), (51.45, "whoosh"), (52.8, "whoosh"), (53.9, "pop"), (55.0, "whoosh"),
-       (55.05, "pop"), (57.05, "pop"), (58.05, "click"), (58.35, "whoosh"), (59.05, "boom")]
+       (50.9, "whoosh"), (51.4, "whoosh"), (55.05, "pop"), (57.1, "whoosh"), (58.05, "click")]
 
 
 def main():

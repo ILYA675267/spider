@@ -221,72 +221,97 @@ def floor_blob(frame, cam, center, rx, rz, strength, color=(0, 0, 0), blur=41, m
     frame[y0:y1, x0:x1] = np.clip(roi, 0, 255).astype(np.uint8)
 
 
-def box(frame, cam, center, size, height, color, base_y=0.0, edge=None, yaw=0.0, glow=None):
-    """Объёмный параллелепипед (столбик графика, здание) со светом по граням."""
+def rounded_rect(w, h, r, n=8):
+    """Контур прямоугольника со скруглёнными углами (по часовой, начиная сверху-слева)."""
+    r = max(0.0, min(r, w / 2, h / 2))
+    pts = []
+    for cx, cy, a0 in ((-w / 2 + r, h / 2 - r, 180), (w / 2 - r, h / 2 - r, 90),
+                       (w / 2 - r, -h / 2 + r, 0), (-w / 2 + r, -h / 2 + r, -90)):
+        for i in range(n + 1):
+            a = math.radians(a0 - 90 * i / n)
+            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return np.array(pts)
+
+
+def box(frame, cam, center, size, height, color, base_y=0.0, edge=None, yaw=0.0, glow=None, radius=None):
+    """Объёмный столбик (график, здание) со скруглёнными вертикальными рёбрами и светом по граням."""
     cx, cz = center
     w, d = size
-    ca, sa = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
-    loc = [(-w / 2, -d / 2), (w / 2, -d / 2), (w / 2, d / 2), (-w / 2, d / 2)]
-    ring = [(cx + x * ca - z * sa, cz + x * sa + z * ca) for x, z in loc]
-    V = np.array([(x, base_y, z) for x, z in ring] + [(x, base_y + height, z) for x, z in ring])
-    faces = [((4, 5, 6, 7), (0, 1, 0), 1.25),   # верх — светлее
-             ((0, 1, 5, 4), None, 1.0), ((1, 2, 6, 5), None, 0.78),
-             ((2, 3, 7, 6), None, 0.62), ((3, 0, 4, 7), None, 0.85)]
-    uv, z = cam.proj(V)
-    if (z < 0.3).any() or height <= 1e-4:
+    if height <= 1e-4:
         return
-    drawn = []
-    for idx, n, shade in faces:
-        Pf = V[list(idx)]
-        cen = Pf.mean(0)
-        if n is None:
-            e1, e2 = Pf[1] - Pf[0], Pf[3] - Pf[0]
-            n = np.cross(e2, e1)
-        if np.dot(n, cam.C - cen) <= 0:
+    r = min(w, d) * 0.22 if radius is None else radius
+    ca, sa = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
+    loc = rounded_rect(w, d, r, 5) if r > 0 else np.array([(-w / 2, d / 2), (w / 2, d / 2), (w / 2, -d / 2), (-w / 2, -d / 2)])
+    ring = np.array([(cx + x * ca - z * sa, cz + x * sa + z * ca) for x, z in loc])
+    n = len(ring)
+    bot = np.stack([ring[:, 0], np.full(n, base_y), ring[:, 1]], -1)
+    top = np.stack([ring[:, 0], np.full(n, base_y + height), ring[:, 1]], -1)
+    uvb, zb = cam.proj(bot)
+    uvt, zt = cam.proj(top)
+    if (zb < 0.3).any() or (zt < 0.3).any():
+        return
+    light = -cam.r * 0.55 - cam.f * 0.75 + np.array([0, 0.35, 0])  # «ключевой свет» спереди-слева от камеры
+    light /= np.linalg.norm(light)
+    cen = np.array([cx, base_y + height / 2, cz])
+    faces = []
+    for i in range(n):
+        j = (i + 1) % n
+        mid = (bot[i] + bot[j]) / 2
+        nrm = np.array([mid[0] - cx, 0.0, mid[2] - cz])
+        nrm /= np.linalg.norm(nrm) + 1e-9
+        if np.dot(nrm, cam.C - mid) <= 0:
             continue
-        # свет сверху-слева относительно камеры: грань, смотрящая на «ключевой свет», ярче
-        col = tuple(float(min(255, c * shade)) for c in color)
-        poly(frame, uv[list(idx)], col)
-        drawn.append(idx)
-    if edge is not None:
-        for idx in drawn:
-            lines(frame, uv[list(idx)], edge, 2)
+        shade = 0.58 + 0.42 * max(0.0, float(np.dot(nrm, light)))
+        faces.append((float(np.dot(cam.C - mid, cam.C - mid)), [uvb[i], uvb[j], uvt[j], uvt[i]], shade))
+    for _, q, shade in sorted(faces, key=lambda x: -x[0]):
+        poly(frame, np.array(q), tuple(float(min(255, c * shade)) for c in color))
+    if cam.C[1] > base_y + height:  # верхняя крышка видна, если камера выше
+        poly(frame, uvt, tuple(float(min(255, c * 1.25)) for c in color))
+        if edge is not None:
+            lines(frame, uvt, edge, 2)
     if glow is not None:
-        top = uv[[4, 5, 6, 7]]
         g = np.zeros((H, W, 3), np.uint8)
-        lines(g, top, glow, 6)
+        lines(g, uvt, glow, 6)
         g = cv2.GaussianBlur(g, (31, 31), 0)
         cv2.add(frame, g, frame)
 
 
 def panel(frame, cam, center, yaw, w, h, thick, tex, pitch=0.0, roll=0.0, side=(40, 40, 50), edge=None,
-          back_tex=None):
-    """Объёмная карточка: картинка-лицо + толщина-бортик. tex — float BGRA премульт."""
+          back_tex=None, radius=None):
+    """Объёмная карточка со скруглёнными углами: картинка-лицо + толщина-бортик. tex — float BGRA премульт.
+    radius — радиус скругления (по умолчанию как у текстур карточек); radius=w/2 у квадрата — круглая монета."""
     a, b, c = math.radians(yaw), math.radians(pitch), math.radians(roll)
     Ry = np.array([[math.cos(a), 0, math.sin(a)], [0, 1, 0], [-math.sin(a), 0, math.cos(a)]])
     Rx = np.array([[1, 0, 0], [0, math.cos(b), -math.sin(b)], [0, math.sin(b), math.cos(b)]])
     Rz = np.array([[math.cos(c), -math.sin(c), 0], [math.sin(c), math.cos(c), 0], [0, 0, 1]])
     R = Ry @ Rx @ Rz
-    loc = np.array([(-w / 2, h / 2), (w / 2, h / 2), (w / 2, -h / 2), (-w / 2, -h / 2)])
-    front = np.array([(x, y, -thick / 2) for x, y in loc]) @ R.T + center
-    back = np.array([(x, y, thick / 2) for x, y in loc]) @ R.T + center
-    uvf, zf = cam.proj(front)
-    uvb, zb = cam.proj(back)
+    r = w * 0.045 if radius is None else radius
+    outline = rounded_rect(w, h, r, 10)
+    quad = np.array([(-w / 2, h / 2), (w / 2, h / 2), (w / 2, -h / 2), (-w / 2, -h / 2)])
+    front_o = np.array([(x, y, -thick / 2) for x, y in outline]) @ R.T + center
+    back_o = np.array([(x, y, thick / 2) for x, y in outline]) @ R.T + center
+    front = np.array([(x, y, -thick / 2) for x, y in quad]) @ R.T + center
+    back = np.array([(x, y, thick / 2) for x, y in quad]) @ R.T + center
+    uvfo, zf = cam.proj(front_o)
+    uvbo, zb = cam.proj(back_o)
+    uvf, _ = cam.proj(front)
+    uvb, _ = cam.proj(back)
     if (zf < 0.3).any() or (zb < 0.3).any():
         return
     normal = R @ np.array([0, 0, -1.0])
     facing = np.dot(normal, cam.C - center) > 0
-    hull = cv2.convexHull(np.concatenate([uvf, uvb]).astype(np.float32)).reshape(-1, 2)
+    hull = cv2.convexHull(np.concatenate([uvfo, uvbo]).astype(np.float32)).reshape(-1, 2)
     poly(frame, hull, side)
-    if edge is not None:
-        lines(frame, uvf[:2], edge, 3, closed=False)  # светлая кромка сверху
+    if edge is not None:  # светлая кромка по верхнему краю, вместе со скруглёнными углами
+        k = len(outline) // 4
+        lines(frame, uvfo[k // 2: k + k // 2 + 1], edge, 3, closed=False)
     if facing:
         warp_onto(frame, tex, uvf)
     else:
         if back_tex is not None:
             warp_onto(frame, back_tex, uvb[[1, 0, 3, 2]])
         else:
-            poly(frame, uvb, tuple(c * 0.7 for c in side))
+            poly(frame, uvbo, tuple(c * 0.7 for c in side))
 
 
 def billboard(frame, cam, pos, height, tex, facing_yaw=None, anchor=(0.5, 1.0), squash=(1.0, 1.0)):
