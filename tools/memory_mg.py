@@ -526,21 +526,21 @@ class Scene:
         y0 = SEC["hook"]
         k = pop(t, 0.95, 4.55)
         if k > 0:
-            pos = place(y0, 0.72, 1.32) + [0, 0.03 * math.sin(t * 2), 0]
+            pos = place(y0, 0.86, 1.36) + [0, 0.03 * math.sin(t * 2), 0]
             self.add_panel(it, cam, pos, face(y0, 24 - 20 * (1 - k)), 0.9 * k, 0.53 * k, 0.06 * k, T["school"],
                            pitch=-4, roll=-3, side=(60, 50, 90), edge=(220, 200, 255))
         k = pop(t, 2.75, 4.55)
         if k > 0:
             fade = 1 - 0.75 * smooth((t - 3.9) / 0.5)
             flick = 0.7 + 0.3 * math.sin(t * 40) if t > 3.85 else 1.0
-            pos = place(y0, 0.72, 0.62) + [0, 0.02 * math.sin(t * 2.4), 0]
+            pos = place(y0, 0.9, 0.66) + [0, 0.02 * math.sin(t * 2.4), 0]
             self.add_panel(it, cam, pos, face(y0, 18), 0.8 * k, 0.47 * k, 0.04 * k, T["lunch"] * (fade * flick),
                            pitch=-6, roll=2, side=(40, 40, 46))
 
         # 2. Заставка «Паучок объясняет»
         k = pop(t, 4.65, 6.15, 0.4, 0.3)
         if k > 0:
-            pos = place(118, 0.0, 1.62, 0.35)
+            pos = place(118, 0.0, 1.95, 0.35)
             self.add_panel(it, cam, pos, face(118, -8), 1.35 * k, 0.635 * k, 0.12 * k, T["stinger"], pitch=-6,
                            side=(30, 24, 120), edge=(200, 190, 255))
 
@@ -552,7 +552,7 @@ class Scene:
             self.add_panel(it, cam, pos, face(y0, 14), 1.0 * k, 0.48 * k, 0.06 * k, T["brain"], pitch=-6,
                            side=(60, 50, 90), edge=(220, 200, 255))
         kb = pop(t, 8.3, 15.6)
-        bins = {"imp": place(y0, 0.5, 0, 0.2), "trash": place(y0, 1.12, 0, 0.05)}
+        bins = {"imp": place(y0, 0.66, 0, 0.2), "trash": place(y0, 1.22, 0, 0.05)}
         if kb > 0:
             for name, col, edge in (("imp", (40, 30, 120), (90, 80, 240)), ("trash", (40, 36, 42), (90, 86, 96))):
                 b = bins[name]
@@ -565,7 +565,7 @@ class Scene:
         for name, t0, dest in (("chip_school", 9.2, "imp"), ("chip_lunch", 11.0, "trash"), ("chip_keys", 12.4, "trash")):
             if t0 < t < t0 + 1.2:
                 p = clamp((t - t0) / 0.8)
-                start = place(y0, 0.78, 1.45)
+                start = place(y0, 0.95, 1.45)
                 end = bins[dest] + [0, 0.34, 0]
                 pos = start * (1 - p) + end * p + [0, 0.45 * math.sin(math.pi * p), 0]
                 s = (1 - smooth((t - t0 - 0.85) / 0.3)) * out_back(clamp((t - t0) / 0.25))
@@ -618,18 +618,18 @@ class Scene:
         k = pop(t, 28.35, 33.45)
         if k > 0:
             thick = 0.06 + 0.16 * smooth((t - 32.8) / 0.4)
-            pos = place(y0, 0.8, 1.3) + [0, 0.03 * math.sin(t * 2), 0]
+            pos = place(y0, 0.9, 1.32) + [0, 0.03 * math.sin(t * 2), 0]
             if 30.2 < t < 30.45:
                 pos = pos + [0, -0.05 * math.sin(math.pi * (t - 30.2) / 0.25), 0]
             self.add_panel(it, cam, pos, face(y0, 18), 0.95 * k, 0.56 * k, thick * k, T["school"], pitch=-5,
                            side=(40, 30, 140), edge=(220, 200, 255))
             ks = clamp((t - 30.15) / 0.18)
             if ks > 0:
-                s = (1.0 + 1.6 * (1 - ks)) * k
+                s = (1.0 + 0.6 * (1 - ks)) * k
                 self.add_bb(it, cam, pos + place(y0, 0.05, -0.02, 0.12), 0.19 * s, T["very"], anchor=(0.5, 0.5))
             kf = pop(t, 32.85, 33.45, 0.35, 0.25)
             if kf > 0:
-                self.add_bb(it, cam, place(y0, 0.8, 0.82, 0.1), 0.11 * kf, T["forever"], anchor=(0.5, 0.5))
+                self.add_bb(it, cam, place(y0, 1.0, 0.8, 0.1), 0.11 * kf, T["forever"], anchor=(0.5, 0.5))
 
         # 6. Прокручиваешь момент — кольцо вокруг персонажа и растущие столбики «яркости»
         y0 = SEC["replay"]
@@ -683,7 +683,7 @@ class Scene:
             e = out_back(k, s=1.25)
             r_, c_ = basis(y0)
             s_ = 0.85 + 0.15 * e
-            card = place(y0, 0.0, 1.95, -0.22) + [0, -0.9 * (1 - e) + 0.015 * math.sin(t * 1.5), 0]
+            card = place(y0, 0.0, 1.95, -0.22) + [0, 0.9 * (1 - e) + 0.015 * math.sin(t * 1.5), 0]
             tilt = 3 + 2 * math.sin(t * 1.5)
             cw, ch = 1.4 * s_, 0.913 * s_   # (до общего увеличения ×1.25)
             it.append((cam.depth(card) + 0.3, lambda card=card, e=e: self.glow_behind(cam, card, y0, e)))
