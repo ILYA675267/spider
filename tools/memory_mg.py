@@ -106,11 +106,16 @@ HEAD = G((0, 0), (1.1, -6), (2.6, 6), (3.4, 8), (4.5, 0), (6.3, -5), (9.2, -7), 
          (42.0, -6), (45.0, -8), (46.4, -9), (47.6, 8), (48.6, 10), (50.9, 6), (51.3, -6), (54.0, -7), (55.1, 5),
          (57.0, -8), (58.2, 0), (59.0, -5), (DUR, 0))
 JUMPS = [4.8, 30.3, 40.6, 58.2]
+SHAKES = (4.95, 30.2)  # удар камеры
+FLASHES = ((4.7, 0.18), (15.6, 0.1), (22.8, 0.1), (33.5, 0.1), (40.2, 0.1), (50.95, 0.12))
+OUTRO = 51.23  # где в голосе начинается концовка про Telegram
+ALARM = (15.9, 22.8)   # красная тревожная пульсация комнаты (или None)
+SPOT = (48.45, 50.95)  # луч прожектора сверху (или None)
 
 
-def char_motion(t):
+def char_motion(t, jumps=None):
     y, sx, sy = 0.0, 1.0, 1.0
-    for j in JUMPS:
+    for j in (JUMPS if jumps is None else jumps):
         if j < t < j + 0.42:
             p = (t - j) / 0.42
             y = 0.26 * math.sin(math.pi * p)
@@ -377,6 +382,8 @@ def plane_tex():
 
 # ---------------------------------------------------------------- сцена
 class Scene:
+    cfg = sys.modules[__name__]  # настройки ролика (камера, жесты, субтитры); другой ролик подставляет свой модуль
+
     def __init__(self, voice):
         self.room = mg.Room(os.path.join(ROOT, "assets", "bg_grid.jpg"), radius=9.0, tiles=12)
         self.puppet = mg.Puppet(os.path.join(ROOT, "assets", "char_tpose.jpg"), CHAR)
@@ -429,11 +436,11 @@ class Scene:
         return self.txt[k]
 
     def cam(self, t):
-        yaw, dist, hgt, ty, fov = track(CAMERA, t)
-        off = track(OFFSET, t)
+        yaw, dist, hgt, ty, fov = track(self.cfg.CAMERA, t)
+        off = track(self.cfg.OFFSET, t)
         a = math.radians(yaw)
         shake = 0.0
-        for s0 in (4.95, 30.2):  # удар камеры на заставке и на штампе
+        for s0 in self.cfg.SHAKES:  # удар камеры на заставке и на штампе
             if s0 < t < s0 + 0.35:
                 shake = (1 - (t - s0) / 0.35) * math.sin((t - s0) * 70)
         return mg.Cam(yaw + 0.5 * wobble(t, 1) + 1.2 * shake, dist, hgt + 0.02 * wobble(t, 2) + 0.03 * shake,
@@ -458,9 +465,11 @@ class Scene:
         frame = self.frame = self.room.render(cam)
         T = self.T
         # окраска комнаты: тревога (красная пульсация) и концовка (голубой Telegram)
-        alarm = pop(t, 15.9, 22.8, 0.2, 0.5) * (0.55 + 0.45 * math.sin(t * 9))
-        tgk = smooth((t - 51.1) / 0.6)
-        spot = pop(t, 48.45, 50.95, 0.35, 0.3)
+        al = self.cfg.ALARM
+        alarm = pop(t, al[0], al[1], 0.2, 0.5) * (0.55 + 0.45 * math.sin(t * 9)) if al else 0.0
+        tgk = smooth((t - self.cfg.OUTRO + 0.13) / 0.6)
+        sp = self.cfg.SPOT
+        spot = pop(t, sp[0], sp[1], 0.35, 0.3) if sp else 0.0
         f = frame.astype(np.float32)
         if alarm > 0:
             f *= np.array([1 - 0.35 * alarm, 1 - 0.35 * alarm, 1 + 0.6 * alarm], np.float32)
@@ -490,12 +499,12 @@ class Scene:
             mg.floor_blob(frame, cam, (0, 0), 0.6, 0.6, 0.7 * spot, color=(230, 240, 255), blur=61, mode="light")
 
         # персонаж
-        y, sx, sy = char_motion(t)
+        y, sx, sy = char_motion(t, self.cfg.JUMPS)
         cx, cz, vis = 0.0, 0.0, 1.0
         env = self.env[min(len(self.env) - 1, int(t * FPS))]
         p = self.puppet
-        canvas = p.render(armL=track(ARM_L, t) + 3 * wobble(t * 1.7, 11), armR=track(ARM_R, t) + 3 * wobble(t * 1.5, 12),
-                          head=track(HEAD, t) + 2.5 * wobble(t * 1.3, 7) + 3 * env * math.sin(t * 9),
+        canvas = p.render(armL=track(self.cfg.ARM_L, t) + 3 * wobble(t * 1.7, 11), armR=track(self.cfg.ARM_R, t) + 3 * wobble(t * 1.5, 12),
+                          head=track(self.cfg.HEAD, t) + 2.5 * wobble(t * 1.3, 7) + 3 * env * math.sin(t * 9),
                           jaw=clamp(env * 1.3), head_dy=-8 * env)
         # персонаж разворачивается к камере с небольшим запозданием, но не больше чем на 30° —
         # иначе на резком облёте он на миг становится «ребром» (тонкой полоской)
@@ -513,7 +522,7 @@ class Scene:
                 squash=(sx, sy))))
         for _, fn in sorted(items, key=lambda x: -x[0]):
             fn()
-        mg.subtitles(frame, t, SUBS)
+        mg.subtitles(frame, t, self.cfg.SUBS)
         return frame
 
     # ------------------------------------------------------------ вставки по сценам
@@ -675,9 +684,14 @@ class Scene:
             self.add_panel(it, cam, pos, face(SEC["spot"], 0), 0.84 * k, 0.41 * k, 0.07 * k, T["spot"], pitch=-18,
                            side=(90, 50, 40), edge=(255, 210, 190))
 
-        # 8. Концовка как в INSTA, тёмная: крупная стеклянная карточка лицом к зрителю по центру, персонаж под ней
-        y0 = SEC["tg"]
-        k = clamp((t - 51.35) / 0.8)
+        # 8. Концовка
+        self.outro_items(t, cam, it, OUTRO, SEC["tg"])
+
+    def outro_items(self, t, cam, it, o, y0):
+        """Концовка как в INSTA, тёмная: крупная стеклянная карточка канала лицом к зрителю, персонаж под ней.
+        o — секунда, где в голосе начинается концовка, y0 — угол камеры в этой сцене."""
+        T = self.T
+        k = clamp((t - o - 0.12) / 0.8)
         if k > 0:
             e = out_back(k, s=1.25)
             r_, c_ = basis(y0)
@@ -688,19 +702,19 @@ class Scene:
             it.append((cam.depth(card) + 0.3, lambda card=card, e=e: self.glow_behind(cam, card, y0, e)))
             self.add_panel(it, cam, card, face(y0, 0), cw, ch, 0.04 * s_, T["tgcard"],
                            pitch=-tilt, side=(70, 60, 50), edge=(255, 225, 180), radius=cw * 0.061)
-            tap = math.sin(math.pi * (t - 58.0) / 0.3) if 58.0 < t < 58.3 else 0.0
-            pulse = 1 + 0.03 * math.sin((t - 52.8) * 6) * (1 if t > 52.8 else 0)
+            tap = math.sin(math.pi * (t - o - 6.77) / 0.3) if o + 6.77 < t < o + 7.07 else 0.0
+            pulse = 1 + 0.03 * math.sin((t - o - 1.57) * 6) * (1 if t > o + 1.57 else 0)
             # кнопка во всю нижнюю часть карточки (как в образце), чуть впереди стекла
             bpos = card + c_ * 0.05 + [0, -0.375 * s_, 0]
             sb = s_ * pulse * (1 - 0.07 * tap)
-            tex = T["pill2"] if t > 58.15 else T["pill"]
+            tex = T["pill2"] if t > o + 6.92 else T["pill"]
             self.add_panel(it, cam, bpos, face(y0, 0), 0.9 * sb, 0.211 * sb, 0.05 * sb, tex, pitch=-tilt,
-                           side=(150, 100, 20) if t <= 58.15 else (50, 50, 60), radius=0.211 * sb / 2)
-            ke = pop(t, 55.05, DUR + 1, 0.3)
+                           side=(150, 100, 20) if t <= o + 6.92 else (50, 50, 60), radius=0.211 * sb / 2)
+            ke = pop(t, o + 3.82, 1e9, 0.3)
             if ke > 0:  # штамп «ЭКСКЛЮЗИВ» на углу карточки
                 self.add_bb(it, cam, card + r_ * 0.7 + c_ * 0.08 + [0, 0.46, 0],
-                            0.1 * ke * (1 + 0.8 * (1 - clamp((t - 55.05) / 0.15))), T["excl"], anchor=(0.5, 0.5))
-            kf = clamp((t - 57.1) / 0.6)  # палец подъезжает к правому краю кнопки и нажимает
+                            0.1 * ke * (1 + 0.8 * (1 - clamp((t - o - 3.82) / 0.15))), T["excl"], anchor=(0.5, 0.5))
+            kf = clamp((t - o - 5.87) / 0.6)  # палец подъезжает к правому краю кнопки и нажимает
             if kf > 0:
                 ef = out_back(kf, s=1.1)
                 fpos = bpos + r_ * (0.45 + 0.35 * (1 - ef)) + c_ * 0.1 + [0, -0.07 - 0.35 * (1 - ef) + 0.05 * tap, 0]
@@ -767,13 +781,13 @@ class Scene:
     def finish(self, frame, t):
         f = frame.astype(np.float32)
         flash = 0.0
-        for s0, amp in ((4.7, 0.18), (15.6, 0.1), (22.8, 0.1), (33.5, 0.1), (40.2, 0.1), (50.95, 0.12)):
+        for s0, amp in self.cfg.FLASHES:
             if s0 < t < s0 + 0.25:
                 flash = max(flash, math.sin(math.pi * (t - s0) / 0.25) * amp)
         if flash:
             f += flash * 255
         f *= VIGNETTE[..., None]
-        f *= clamp(t / 0.25) * clamp((DUR - t) / 0.35)
+        f *= clamp(t / 0.25) * clamp((self.cfg.DUR - t) / 0.35)
         return np.clip(f, 0, 255).astype(np.uint8)
 
 
@@ -822,12 +836,12 @@ def main():
     os.remove(tmp)
 
 
-def mix_audio(video, voice, out, music=None):
+def mix_audio(video, voice, out, music=None, sfx_list=None, dur=None, sfx_vol=0.4):
     """Голос + звуки моушн-графики + тихая фоновая музыка, которая сама приглушается под голосом."""
     music = music or os.path.join(os.path.dirname(os.path.abspath(voice)), "music.wav")
-    fx = mg.sfx(out + ".sfx.wav", SFX, DUR)
+    fx = mg.sfx(out + ".sfx.wav", SFX if sfx_list is None else sfx_list, DUR if dur is None else dur)
     inputs = ["-i", video, "-i", voice, "-i", fx]
-    graph = "[1:a]aformat=channel_layouts=stereo,asplit=2[v][vk];[2:a]aformat=channel_layouts=stereo,volume=0.4[s];"
+    graph = f"[1:a]aformat=channel_layouts=stereo,asplit=2[v][vk];[2:a]aformat=channel_layouts=stereo,volume={sfx_vol}[s];"
     if os.path.exists(music):
         inputs += ["-i", music]
         graph += ("[3:a]volume=0.2[m0];[m0][vk]sidechaincompress=threshold=0.02:ratio=5:attack=30:release=400[m];"

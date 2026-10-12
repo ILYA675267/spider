@@ -1,9 +1,11 @@
 """Проверка: не закрывают ли вставки персонажа. Каждый момент рисуется дважды — как обычно и с персонажем
 поверх всего; если в области персонажа кадры отличаются больше чем на 2% — его что-то закрывает.
-python tools/check_occlusion.py   (печатает [(секунда, % закрыто)], пустой список — всё чисто)"""
+python tools/check_occlusion.py [модуль_ролика] [голос.wav]   (по умолчанию memory_mg; печатает [(секунда, % закрыто)])"""
 import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import cv2, numpy as np, mg, memory_mg as M
-sc = M.Scene(os.path.join(M.ROOT, "work", "memory", "voice_clean.wav"))
+import importlib
+import cv2, numpy as np, mg
+M = importlib.import_module(sys.argv[1] if len(sys.argv) > 1 else "memory_mg")
+sc = M.Scene(sys.argv[2] if len(sys.argv) > 2 else os.path.join(M.ROOT, "work", "memory", "voice_clean.wav"))
 bad = []
 TS = [i / 4 for i in range(int(M.DUR * 4))]
 for t in TS:
