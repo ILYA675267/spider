@@ -7,7 +7,7 @@ import cv2, numpy as np, mg
 M = importlib.import_module(sys.argv[1] if len(sys.argv) > 1 else "memory_mg")
 sc = M.Scene(sys.argv[2] if len(sys.argv) > 2 else os.path.join(M.ROOT, "work", "memory", "voice_clean.wav"))
 bad = []
-TS = [i / 4 for i in range(int(M.DUR * 4))]
+TS = [float(x) for x in os.environ["TS"].split(",")] if os.environ.get("TS") else [i / 4 for i in range(int(M.DUR * 4))]
 for t in TS:
     sc.char_last = False; A = sc.draw(t).astype(np.int16)
     sc.char_last = True; B = sc.draw(t).astype(np.int16)
