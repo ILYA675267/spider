@@ -99,7 +99,7 @@ SEC = {"hook": -8, "trap": 99, "bill": 184, "park": 271, "joy": 360, "run": 452,
 SHAKES = (5.95,)
 FLASHES = ((3.5, 0.18), (5.4, 0.08), (8.45, 0.1), (16.55, 0.1), (22.25, 0.1), (28.65, 0.1), (34.65, 0.1),
            (42.25, 0.12))
-JUMPS = [3.45, 32.1, 32.62, 33.14, 49.35]
+JUMPS = [3.45, 32.1, 32.62, 33.14]
 ALARM = None
 SPOT = None
 
@@ -423,7 +423,7 @@ class Scene(base.Scene):
             n = 0 + (t > 9.94) + (t > 10.92) + (t > 12.6) + (t > 13.46) + (t > 13.82)
             grow = 0.62 + 0.38 * smooth((t - 12.6) / 0.6)  # чек «вытягивается» вниз
             hh = 0.9 * grow
-            pos = P(y0, 0.76, 2.0 - hh * 1.15 * 1.25 / 2) + [0, 0.02 * math.sin(t * 2), 0]
+            pos = P(y0, 0.84, 2.0 - hh * 1.15 * 1.25 / 2) + [0, 0.02 * math.sin(t * 2), 0]
             tex = self.cached("receipt", receipt_tex, n)
             th = tex.shape[0]
             cut = int(th * grow)
