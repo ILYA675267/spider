@@ -5,3 +5,4 @@ bv/
 *.video.mp4
 *.sfx.wav
 *_chat.mp4
+*.part[0-9]*.mp4
