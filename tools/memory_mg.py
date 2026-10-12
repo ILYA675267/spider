@@ -819,12 +819,25 @@ def main():
     if only:
         return
     wr.close()
+    mix_audio(tmp, voice, out)
+    os.remove(tmp)
+
+
+def mix_audio(video, voice, out, music=None):
+    """Голос + звуки моушн-графики + тихая фоновая музыка, которая сама приглушается под голосом."""
+    music = music or os.path.join(os.path.dirname(os.path.abspath(voice)), "music.wav")
     fx = mg.sfx(out + ".sfx.wav", SFX, DUR)
-    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", tmp, "-i", voice, "-i", fx,
-                    "-filter_complex", "[1:a]volume=1.0[v];[2:a]volume=0.4[s];[v][s]amix=inputs=2:normalize=0[a]",
+    inputs = ["-i", video, "-i", voice, "-i", fx]
+    graph = "[1:a]aformat=channel_layouts=stereo,asplit=2[v][vk];[2:a]aformat=channel_layouts=stereo,volume=0.4[s];"
+    if os.path.exists(music):
+        inputs += ["-i", music]
+        graph += ("[3:a]volume=0.2[m0];[m0][vk]sidechaincompress=threshold=0.02:ratio=5:attack=30:release=400[m];"
+                  "[v][s][m]amix=inputs=3:normalize=0[a]")
+    else:
+        graph += "[vk]anullsink;[v][s]amix=inputs=2:normalize=0[a]"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", *inputs, "-filter_complex", graph,
                     "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out],
                    check=True)
-    os.remove(tmp)
     os.remove(fx)
 
 
