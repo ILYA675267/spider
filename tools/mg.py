@@ -381,10 +381,13 @@ class Room:
             src = cv2.resize(src, None, fx=upscale, fy=upscale, interpolation=cv2.INTER_LANCZOS4)
             blur = cv2.GaussianBlur(src, (0, 0), 1.2 * upscale)
             src = cv2.addWeighted(src, 1.6, blur, -0.6, 0)
+        # бесшовность: картинка + её зеркальная копия — на каждом стыке края совпадают пиксель в пиксель
+        src = np.concatenate([src, src[:, ::-1]], 1)
         tex = src.astype(np.float32) * dim
         self.tex = tex
         self.th, self.tw = tex.shape[:2]
         self.R = radius
+        tiles = max(1, tiles // 2)  # пара «картинка+зеркало» — один повтор, масштаб клеток прежний
         self.tiles = tiles
         self.tile_w = 2 * math.pi * radius / tiles
         self.tile_h = self.tile_w * self.th / self.tw

@@ -288,7 +288,7 @@ def tg_glass_card():
     w1 = d.textbbox((0, 0), t1, font=f1)[2]
     d.text((cx - w1 / 2, 272), t1, font=f1, fill="white")
     f2 = mg.font(40)
-    a_, b_ = "Telegram-канал · ", "ссылка в профиле"
+    a_, b_ = "Telegram-канал · ", "t.me/pit_of_spider"
     wa, wb = d.textbbox((0, 0), a_, font=f2)[2], d.textbbox((0, 0), b_, font=f2)[2]
     x0 = cx - (wa + wb) / 2
     d.text((x0, 372), a_, font=f2, fill=(150, 155, 175))
@@ -312,6 +312,23 @@ def tg_pill(text, pressed=False):
     im.paste(grad, (0, 0), m)
     d = ImageDraw.Draw(im)
     d.rounded_rectangle([18, 6, W_ - 19, 12], 3, fill=(255, 255, 255, 90))  # блик сверху
+    # маленькая паутинка в правом верхнем углу кнопки — тематично
+    web = Image.new("RGBA", (W_, H_), (0, 0, 0, 0))
+    wd = ImageDraw.Draw(web)
+    ox, oy, R = W_ - 30, 6, 78
+    angs = [math.radians(a) for a in (95, 118, 141, 164, 187)]
+    for a in angs:
+        wd.line([(ox, oy), (ox + R * math.cos(a), oy + R * math.sin(a))], fill=(255, 255, 255, 120), width=2)
+    for rr in (22, 42, 62, 76):
+        pts = []
+        for a0, a1 in zip(angs, angs[1:]):
+            for i in range(7):  # нити между лучами слегка провисают к центру
+                q = i / 6
+                a = a0 + (a1 - a0) * q
+                r = rr * (1 - 0.12 * math.sin(math.pi * q))
+                pts.append((ox + r * math.cos(a), oy + r * math.sin(a)))
+        wd.line(pts, fill=(255, 255, 255, 105), width=2)
+    im.alpha_composite(Image.composite(web, Image.new("RGBA", (W_, H_), (0, 0, 0, 0)), m))
     f = mg.font(62)
     tw = d.textbbox((0, 0), text, font=f)[2]
     icon = 64
@@ -491,7 +508,8 @@ class Scene:
         if vis > 0.02:
             mg.floor_blob(frame, cam, (cx, cz), 0.34 * (0.6 + 0.4 * sk) * vis, 0.22 * (0.6 + 0.4 * sk) * vis,
                           0.6 * sk * vis, blur=51)
-            items.append((cam.depth((cx, 0.6, cz)), lambda: mg.billboard(
+            self.char_args = ((cx, y, cz), hgt_m * vis, canvas, facing, (sx, sy), cam)
+            items.append((-1e9 if getattr(self, "char_last", False) else cam.depth((cx, 0.6, cz)), lambda: mg.billboard(
                 frame, cam, (cx, y, cz), hgt_m * vis, canvas, facing_yaw=facing, anchor=self.anchor,
                 squash=(sx, sy))))
         for _, fn in sorted(items, key=lambda x: -x[0]):
