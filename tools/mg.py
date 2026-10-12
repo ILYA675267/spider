@@ -162,14 +162,15 @@ def font(size, tall=False):
 
 
 # ---------------------------------------------------------------- объекты мира
-def floor_grid(frame, cam, step=0.5, extent=7.0, base=150, color=(1.0, 1.0, 1.0), fade=9.0, radius=None, mask=None):
+def floor_grid(frame, cam, step=0.5, extent=7.0, base=150, color=(1.0, 1.0, 1.0), fade=9.0, radius=None, mask=None,
+               axes=(0, 1)):
     """Сетка на полу в перспективе — главный «объёмный» ориентир сцены."""
     layer = np.zeros((H, W), np.uint8)
     n = int(extent / step)
     seg = 28
     for k in range(-n, n + 1):
         c = k * step
-        for axis in (0, 1):
+        for axis in axes:  # axes=(0,) — полоски только в одну сторону
             ts = np.linspace(-extent, extent, seg + 1)
             P = np.zeros((seg + 1, 3))
             P[:, axis] = c

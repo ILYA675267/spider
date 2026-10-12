@@ -311,7 +311,6 @@ def tg_pill(text, pressed=False):
     ImageDraw.Draw(m).rounded_rectangle([0, 0, W_ - 1, H_ - 1], H_ // 2, fill=255)
     im.paste(grad, (0, 0), m)
     d = ImageDraw.Draw(im)
-    d.rounded_rectangle([18, 6, W_ - 19, 12], 3, fill=(255, 255, 255, 90))  # блик сверху
     # маленькая паутинка в правом верхнем углу кнопки — тематично
     web = Image.new("RGBA", (W_, H_), (0, 0, 0, 0))
     wd = ImageDraw.Draw(web)
@@ -473,7 +472,7 @@ class Scene:
 
         glow_col = (60, 50, 210) if tgk < 0.5 else (220, 150, 40)
         mg.floor_blob(frame, cam, (0, 0), 1.1, 1.1, 0.2 * (1 - spot), color=glow_col, blur=151, mode="light")
-        mg.floor_grid(frame, cam, step=0.75, extent=9, base=110, fade=11, radius=8.9, mask=self.room.floor_mask)
+        mg.floor_grid(frame, cam, step=0.75, extent=9, base=110, fade=11, radius=8.9, mask=self.room.floor_mask, axes=(0,))
 
         items = []
         self.items_for(t, cam, items)
