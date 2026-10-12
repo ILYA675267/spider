@@ -85,7 +85,7 @@ ARM_L = G((0, 62), (4.5, 62), (4.75, -50, "back"), (5.6, -45), (6.0, 62, "back")
           (33.8, 62), (34.0, 42, "back"), (35.6, 45), (35.9, 62), (36.6, 62), (36.8, -10, "back"), (38.3, -12),
           (38.6, 62), (40.5, 62), (40.65, -42, "back"), (41.3, -40), (41.6, 62), (47.4, 62), (47.6, 32, "back"),
           (48.3, 35), (48.6, 58), (50.9, 58), (54.9, 62), (55.1, 40, "back"), (56.0, 42), (56.3, 62),
-          (58.0, 62), (58.15, -50, "back"), (58.8, -45), (59.1, 62, "back"), (DUR, 62))
+          (58.0, 62), (58.15, -50, "back"), (58.8, -45), (DUR, -48))
 ARM_R = G((0, 62), (0.9, 62), (1.1, -30, "back"), (2.4, -28), (2.65, 22, "back"), (3.3, 25), (3.45, 35, "back"),
           (4.45, 35), (4.75, -50, "back"), (5.6, -45), (6.0, 62, "back"), (6.3, 62), (6.5, -12, "back"), (8.0, -10),
           (8.5, 40, "back"), (9.2, 15, "back"), (10.8, 12), (11.0, 25, "back"), (12.9, 25), (13.25, -15, "back"),
@@ -98,14 +98,14 @@ ARM_R = G((0, 62), (0.9, 62), (1.1, -30, "back"), (2.4, -28), (2.65, 22, "back")
           (40.65, -42, "back"), (41.3, -40), (42.0, -15, "back"), (44.7, -15), (44.95, -40, "back"), (46.1, -38),
           (46.35, 15, "back"), (47.4, 15), (47.6, 32, "back"), (48.3, 35), (48.6, 58), (50.9, 58),
           (51.3, -20, "back"), (53.7, -18), (53.95, -32, "back"), (56.8, -30), (57.05, 20, "back"), (57.9, 22),
-          (58.15, -50, "back"), (58.8, -45), (58.95, -58), (59.1, -32), (59.25, -58), (59.4, -32), (59.55, -58),
-          (59.7, -40), (DUR, 62))
+          (58.15, -50, "back"), (58.8, -45), (DUR, -48))
 HEAD = G((0, 0), (1.1, -6), (2.6, 6), (3.4, 8), (4.5, 0), (6.3, -5), (9.2, -7), (11.0, -9), (13.2, 3),
          (14.8, -6), (15.9, 0), (16.2, 6), (17.2, -6), (18.7, -7), (21.0, 8), (22.5, 0), (23.3, -6), (25.0, 4),
          (25.9, -6), (28.4, -8), (30.3, 0), (31.7, -6), (33.6, 0), (34.0, 7), (36.0, -5), (38.6, -7), (40.6, 3),
          (42.0, -6), (45.0, -8), (46.4, -9), (47.6, 8), (48.6, 10), (50.9, 6), (51.3, -6), (54.0, -7), (55.1, 5),
          (57.0, -8), (58.2, 0), (59.0, -5), (DUR, 0))
-JUMPS = [4.8, 30.3, 40.6, 58.2]
+JUMPS = [4.8, 30.3, 40.6]
+JUMP_IN = 58.3  # Паучок прыгает в норку
 
 
 def char_motion(t):
@@ -255,6 +255,30 @@ def tg_button(pressed):
     return mg.premul(im)
 
 
+def neon(text, color=TG_RGB):
+    """Неоновая вывеска: белые буквы с голубым свечением."""
+    f = mg.font(130, tall=True)
+    tmp = ImageDraw.Draw(Image.new("RGBA", (10, 10)))
+    l, t_, r, b = tmp.textbbox((0, 0), text, font=f)
+    pad = 60
+    im = Image.new("RGBA", (r - l + 2 * pad, b - t_ + 2 * pad), (0, 0, 0, 0))
+    ImageDraw.Draw(im).text((pad - l, pad - t_), text, font=f, fill=(255, 255, 255, 255))
+    a = np.asarray(im, np.float32)[..., 3] / 255
+    glow = cv2.GaussianBlur(a, (0, 0), 18) * 1.6 + cv2.GaussianBlur(a, (0, 0), 6) * 0.8
+    glow = np.clip(glow, 0, 1)
+    col = np.array(color[::-1], np.float32) / 255  # в BGR
+    rgb = col * glow[..., None] * (1 - a[..., None]) + a[..., None] * np.array([1.0, 0.97, 0.92])
+    al = np.clip(np.maximum(a, glow * 0.85), 0, 1)
+    return np.concatenate([rgb * (al[..., None] > 0), al[..., None]], -1).astype(np.float32)
+
+
+def arrow_tex(color=TG_RGB):
+    im = Image.new("RGBA", (220, 300), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.polygon([(110, 10), (210, 130), (145, 130), (145, 290), (75, 290), (75, 130), (10, 130)], fill=color + (255,))
+    return mg.premul(im)
+
+
 def plane_tex():
     im = Image.new("RGBA", (300, 240), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
@@ -300,6 +324,9 @@ class Scene:
         T["excl"] = chip("ЭКСКЛЮЗИВ", TG_RGB)
         T["btn"], T["btn2"] = tg_button(False), tg_button(True)
         T["plane"] = plane_tex()
+        T["neon"] = neon("ПАУЧЬЯ НОРКА")
+        T["excl"] = stamp("ЭКСКЛЮЗИВ", TG_RGB)
+        T["arrow"] = arrow_tex()
         self.txt = {}
 
     def text(self, s, size=90, color=(255, 255, 255)):
@@ -354,6 +381,9 @@ class Scene:
         mg.floor_blob(frame, cam, (0, 0), 1.1, 1.1, 0.2 * (1 - spot), color=glow_col, blur=151, mode="light")
         mg.floor_grid(frame, cam, step=0.75, extent=9, base=110, fade=11, radius=8.9, mask=self.room.floor_mask)
 
+        kh = self.hole_open(t)
+        if kh > 0:
+            self.draw_hole(cam, t, kh)
         items = []
         self.items_for(t, cam, items)
 
@@ -371,6 +401,15 @@ class Scene:
 
         # персонаж
         y, sx, sy = char_motion(t)
+        cx, cz, vis = 0.0, 0.0, 1.0
+        if t > JUMP_IN:  # разбег-прыжок по дуге и «ныряние» в норку
+            q = clamp((t - JUMP_IN) / 0.7)
+            hole = self.hole_pos()
+            e = mg.in_out_cubic(q)
+            cx, cz = hole[0] * e, hole[2] * e
+            y = 0.55 * math.sin(math.pi * min(q / 0.75, 1.0)) - (0.6 * ((q - 0.75) / 0.25) if q > 0.75 else 0.0)
+            vis = 1 - smooth((q - 0.72) / 0.28)
+            sx, sy = 0.92 + 0.08 * vis, 1.08 if q < 0.75 else 1.0
         env = self.env[min(len(self.env) - 1, int(t * FPS))]
         p = self.puppet
         canvas = p.render(armL=track(ARM_L, t) + 3 * wobble(t * 1.7, 11), armR=track(ARM_R, t) + 3 * wobble(t * 1.5, 12),
@@ -383,9 +422,12 @@ class Scene:
         facing = now + max(-30.0, min(30.0, lagd - now))
         hgt_m = p.Hc * self.px_to_m
         sk = clamp(1 - y / 1.5)
-        mg.floor_blob(frame, cam, (0, 0), 0.34 * (0.6 + 0.4 * sk), 0.22 * (0.6 + 0.4 * sk), 0.6 * sk, blur=51)
-        items.append((cam.depth((0, 0.6, 0)), lambda: mg.billboard(frame, cam, (0, y, 0), hgt_m, canvas,
-                                                                     facing_yaw=facing, anchor=self.anchor, squash=(sx, sy))))
+        if vis > 0.02:
+            mg.floor_blob(frame, cam, (cx, cz), 0.34 * (0.6 + 0.4 * sk) * vis, 0.22 * (0.6 + 0.4 * sk) * vis,
+                          0.6 * sk * vis, blur=51)
+            items.append((cam.depth((cx, 0.6, cz)), lambda: mg.billboard(
+                frame, cam, (cx, y, cz), hgt_m * vis, canvas, facing_yaw=facing, anchor=self.anchor,
+                squash=(sx, sy))))
         for _, fn in sorted(items, key=lambda x: -x[0]):
             fn()
         mg.subtitles(frame, t, SUBS)
@@ -550,37 +592,98 @@ class Scene:
             self.add_panel(it, cam, pos, face(SEC["spot"], 0), 0.84 * k, 0.41 * k, 0.07 * k, T["spot"], pitch=-18,
                            side=(90, 50, 40), edge=(255, 210, 190))
 
-        # 8. Концовка: Telegram «Паучья Норка»
+        # 8. Концовка: норка-портал «Паучья Норка» в полу, из неё поднимается Telegram
         y0 = SEC["tg"]
-        k = pop(t, 51.35, DUR + 1)
-        if k > 0:
-            spin = (t - 51.35) * 160
-            pos = place(y0, 0.95, 2.1) + [0, 0.04 * math.sin(t * 2.5), 0]
-            self.add_panel(it, cam, pos, face(y0, 0) + spin, 0.42 * k, 0.42 * k, 0.07 * k, T["logo"],
+        hole = self.hole_pos()
+        k = pop(t, 51.45, DUR + 1)
+        if k > 0:  # значок Telegram-монета вылетает из норки и зависает сверху
+            rise = out_back(clamp((t - 51.45) / 0.9), s=1.3)
+            pos = hole * (1 - rise) + place(y0, 0.95, 2.12) * rise + [0, -0.5 * (1 - rise) + 0.04 * math.sin(t * 2.5), 0]
+            self.add_panel(it, cam, pos, face(y0, 0) + (t - 51.45) * 170, 0.42 * k, 0.42 * k, 0.07 * k, T["logo"],
                            side=(150, 100, 20), back_tex=T["logo"])
-        kc = pop(t, 52.8, DUR + 1)
-        if kc > 0:
-            pos = place(y0, 0.68, 1.5) + [0, 0.03 * math.sin(t * 2), 0]
-            self.add_panel(it, cam, pos, face(y0, 12 - 25 * (1 - kc)), 0.88 * kc, 0.537 * kc, 0.06 * kc, T["tg"],
+        kc = clamp((t - 52.8) / 0.75)
+        if kc > 0:  # карточка канала поднимается из норки, как на лифте
+            e = out_back(kc, s=1.2)
+            top = place(y0, 0.78, 1.5) + [0, 0.03 * math.sin(t * 2), 0]
+            pos = hole + (top - hole) * e + [0, -0.4 * (1 - e), 0]
+            s_ = 0.55 + 0.45 * e
+            self.add_panel(it, cam, pos, face(y0, 12 - 30 * (1 - e)), 0.88 * s_, 0.537 * s_, 0.06 * s_, T["tg"],
                            pitch=-5, side=(70, 55, 40), edge=(255, 220, 160))
-            for i in range(3):  # маленькие значки Telegram облетают карточку
-                th = t * 1.6 + i * 2 * math.pi / 3
+            ke = pop(t, 55.05, DUR + 1, 0.3)
+            if ke > 0:  # штамп «ЭКСКЛЮЗИВ» на углу карточки
                 r_, c_ = basis(y0)
-                op = pos + r_ * 0.85 * math.cos(th) + c_ * 0.45 * math.sin(th) + [0, 0.32 * math.sin(th * 0.5 + i), 0]
-                self.add_bb(it, cam, op, 0.13 * kc, T["logo_s"], anchor=(0.5, 0.5))
-        ke = pop(t, 55.05, DUR + 1, 0.35)
-        if ke > 0:
-            self.add_bb(it, cam, place(y0, 0.95, 0.92, 0.3), 0.1 * ke, T["excl"], anchor=(0.5, 0.5))
-        if 55.7 < t < 57.3:  # бумажный самолётик пролетает с пунктирным следом
-            it.append((cam.depth(place(y0, 0.6, 1.2, 0.6)) - 1, lambda: self.plane(cam, y0, t)))
+                self.add_bb(it, cam, top + r_ * 0.15 + c_ * 0.12 + [0, 0.36, 0], 0.14 * ke * (1 + 0.8 * (1 - clamp((t - 55.05) / 0.15))),
+                            T["excl"], anchor=(0.5, 0.5))
+        kn = pop(t, 53.9, 57.0, 0.4, 0.25)
+        if kn > 0:  # неоновая вывеска с названием
+            flick = 1.0 if t > 54.3 else (0.4 + 0.6 * (math.sin(t * 70) > 0))
+            self.add_bb(it, cam, place(y0, 0.8, 0.98, 0.15), 0.15 * kn, T["neon"] * flick, anchor=(0.5, 0.5))
+        if 55.0 < t < 57.4:  # стайка самолётиков вылетает из норки по спирали
+            r_, c_ = basis(y0)
+            for i in range(6):
+                q = (t - 55.0 - 0.17 * i) / 1.5
+                if not 0 < q < 1:
+                    continue
+                th = 5.5 * q + i * 1.1
+                rad = 0.25 + 0.55 * q
+                pos = hole + r_ * rad * math.cos(th) + c_ * rad * math.sin(th) + [0, 2.3 * q, 0]
+                self.add_bb(it, cam, pos, 0.1 * (1 - 0.3 * q), T["plane"], anchor=(0.5, 0.5))
+        ka = pop(t, 57.05, 58.2, 0.3, 0.2)
+        if ka > 0:  # стрелка вверх — «ссылка в профиле»
+            self.add_bb(it, cam, place(y0, 0.0, 1.5 + 0.08 * abs(math.sin(t * 7)), 0.0), 0.2 * ka, T["arrow"],
+                        anchor=(0.5, 0.5))
         kb = pop(t, 57.05, DUR + 1, 0.4)
         if kb > 0:
             press = math.sin(math.pi * (t - 58.05) / 0.2) if 58.05 < t < 58.25 else 0.0
             tex = T["btn2"] if t > 58.15 else T["btn"]
-            pos = place(y0, 0.78, 0.5, 0.25) + [0, 0.02 * math.sin(t * 3), 0]
-            s = kb * (1 - 0.12 * press)
-            self.add_panel(it, cam, pos, face(y0, 10), 0.7 * s, 0.184 * s, 0.11 * s, tex, pitch=-10,
+            pos = place(y0, 0.8, 0.95, 0.15) + [0, 0.02 * math.sin(t * 3), 0]
+            s_ = kb * (1 - 0.12 * press)
+            self.add_panel(it, cam, pos, face(y0, 10), 0.7 * s_, 0.184 * s_, 0.11 * s_, tex, pitch=-10,
                            side=(150, 100, 20) if t <= 58.15 else (50, 50, 58), edge=(255, 230, 190))
+
+    def hole_pos(self):
+        return place(SEC["tg"], 0.85, 0.0, -1.0)
+
+    def hole_open(self, t):
+        """Норка открывается после облёта и захлопывается, когда в неё нырнул Паучок."""
+        return out_back(clamp((t - 51.3) / 0.5), s=1.4) * (1 - mg.in_out_cubic(clamp((t - 59.05) / 0.3)))
+
+    def draw_hole(self, cam, t, k):
+        """Круглая светящаяся норка в полу: чёрная глубина, голубой ободок, кольца внутри и луч света вверх."""
+        c = self.hole_pos()
+        r = 0.42 * k
+        a = np.linspace(0, 2 * math.pi, 56, endpoint=False)
+
+        def ring(rad, yy):
+            return np.stack([c[0] + rad * np.cos(a), np.full_like(a, yy), c[2] + rad * np.sin(a)], -1)
+
+        uv, z = cam.proj(ring(r, 0.0))
+        if (z < 0.3).any() or r < 0.01:
+            return
+        fr = self.frame
+        lay = np.zeros((H, W), np.float32)
+        mg.poly(lay, uv, 1.0)
+        lay = cv2.GaussianBlur(lay, (0, 0), 2)
+        fr[...] = (fr.astype(np.float32) * (1 - 0.92 * lay[..., None])).astype(np.uint8)
+        glow = np.zeros_like(fr)
+        for i, (rad, yy) in enumerate(((0.8, -0.12), (0.6, -0.26), (0.4, -0.42))):  # «стенки» уходят вглубь
+            u2, z2 = cam.proj(ring(r * rad, yy))
+            if (z2 > 0.3).all():
+                mg.lines(glow, u2, tuple(int(v * (0.5 - 0.13 * i)) for v in TG), 3)
+        pulse = 0.8 + 0.2 * math.sin(t * 6)
+        mg.lines(glow, uv, tuple(int(v * pulse) for v in TG), 7)
+        g = cv2.GaussianBlur(glow, (0, 0), 9)
+        cv2.add(fr, g, fr)
+        cv2.add(fr, g, fr)
+        cv2.add(fr, glow, fr)
+        # мягкий луч света из норки вверх
+        top = ring(r * 0.55, 2.0)
+        u3, z3 = cam.proj(np.vstack([ring(r, 0.0), top]))
+        if (z3 > 0.3).all():
+            sh = np.zeros((H, W), np.float32)
+            mg.poly(sh, cv2.convexHull(u3.astype(np.float32)).reshape(-1, 2), 1.0)
+            sh = cv2.GaussianBlur(sh, (0, 0), 25) * 0.08 * k
+            fr[...] = np.clip(fr.astype(np.float32) + sh[..., None] * np.array(TG, np.float32), 0, 255).astype(np.uint8)
 
     # ------------------------------------------------------------ особые эффекты
     def ekg(self, cam, center, yaw, t, k):
@@ -630,7 +733,7 @@ class Scene:
     def finish(self, frame, t):
         f = frame.astype(np.float32)
         flash = 0.0
-        for s0, amp in ((4.7, 0.18), (15.6, 0.1), (22.8, 0.1), (33.5, 0.1), (40.2, 0.1), (50.95, 0.12)):
+        for s0, amp in ((4.7, 0.18), (15.6, 0.1), (22.8, 0.1), (33.5, 0.1), (40.2, 0.1), (50.95, 0.12), (59.1, 0.22)):
             if s0 < t < s0 + 0.25:
                 flash = max(flash, math.sin(math.pi * (t - s0) / 0.25) * amp)
         if flash:
@@ -646,8 +749,8 @@ SFX = [(0.0, "whoosh"), (0.95, "pop"), (2.75, "pop"), (3.9, "whoosh"), (4.55, "w
        (23.95, "pop"), (25.75, "pop"), (28.35, "pop"), (30.15, "boom"), (32.85, "pop"), (33.4, "whoosh"),
        (36.55, "whoosh"), (37.6, "pop"), (38.3, "pop"), (38.55, "pop"), (38.8, "pop"), (40.15, "whoosh"),
        (40.55, "pop"), (43.3, "pop"), (44.9, "pop"), (47.0, "pop"), (48.4, "rumble"), (49.3, "pop"),
-       (50.9, "whoosh"), (51.35, "pop"), (52.8, "pop"), (55.05, "pop"), (55.7, "whoosh"), (57.05, "pop"),
-       (58.05, "click")]
+       (50.9, "whoosh"), (51.3, "rumble"), (51.45, "whoosh"), (52.8, "whoosh"), (53.9, "pop"), (55.0, "whoosh"),
+       (55.05, "pop"), (57.05, "pop"), (58.05, "click"), (58.35, "whoosh"), (59.05, "boom")]
 
 
 def main():
