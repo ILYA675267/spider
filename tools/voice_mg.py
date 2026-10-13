@@ -297,7 +297,7 @@ class Scene(base.Scene):
         for s, (key, sub, col, lam, thick) in enumerate((("you", "you_s", WARM, 260, 12), ("all", "all_s", BLUE, 90, 6))):
             x0 = s * W // 2
             tex = T[key]
-            sc = 0.95 * k
+            sc = 0.8 * k
             if sc > 0.05:
                 th = cv2.resize(tex, (max(2, int(tex.shape[1] * sc)), max(2, int(tex.shape[0] * sc))), interpolation=cv2.INTER_AREA)
                 mg.over(out, th, x0 + (W // 2 - th.shape[1]) // 2, 250)
