@@ -44,6 +44,7 @@ def duration(p):
 
 
 AD_DUR = duration(AD)
+AD_GAIN = 2.0                    # баннер громче в 2 раза (+6 дБ) — просьба пользователя
 TOTAL = DUR + AD_DUR + FLY       # вся вставка: облёт + фраза + баннер + облёт обратно
 
 
@@ -145,7 +146,7 @@ def insert(video, t, out, modname, t0=None, ad=AD, width=1040):
              f"[ab]atrim=start={t},asetpts=PTS-STARTPTS,{au},afade=t=in:d=0.12[a4];"
              f"[2:v]chromakey=0x00FF00:0.25:0.05,despill=green,scale={width}:-1,setpts=PTS-STARTPTS+{bd}/TB[ad];"
              f"[1:v]{st}[sv0];[sv0][ad]overlay=(W-w)/2:(H-h)/2:eof_action=pass,{st}[sv];"
-             f"[2:a]{au},adelay={int(bd * 1000)}:all=1[ba];[1:a]{au}[pa];"
+             f"[2:a]{au},volume={AD_GAIN},adelay={int(bd * 1000)}:all=1[ba];[1:a]{au}[pa];"
              f"[pa][ba]amix=inputs=2:normalize=0:duration=first[sa];"
              f"[v1][a1][sv][sa][v4][a4]concat=n=3:v=1:a=1[v][a]")
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", video, "-i", sh, "-i", ad,
