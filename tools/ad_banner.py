@@ -76,7 +76,8 @@ def shot(out):
     wr.close()
     cv2.imwrite(out + ".png", fr)
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", vid, "-i", wav, "-map", "0:v", "-map", "1:a",
-                    "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", out], check=True)
+                    "-c:v", "copy", "-af", "pan=stereo|c0=c0|c1=c0", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", out],
+                   check=True)  # голос в оба канала без потери громкости
     os.remove(wav)
     os.remove(vid)
 
