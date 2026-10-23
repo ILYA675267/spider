@@ -158,5 +158,5 @@ def insert(video, t, out, modname, t0=None, ad=AD, width=1040):
 if __name__ == "__main__":
     cmd, a = sys.argv[1], sys.argv[2:]
     if cmd == "insert":
-        insert(a[0], float(a[1]), a[2], a[3], *[float(x) for x in a[4:5]], *(a[5:6] or [AD]),
-               *[int(x) for x in a[6:7]])
+        insert(a[0], float(a[1]), a[2], a[3], t0=float(a[4]) if len(a) > 4 else None,
+               ad=a[5] if len(a) > 5 else AD, width=int(a[6]) if len(a) > 6 else 1040)
