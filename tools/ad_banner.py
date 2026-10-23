@@ -1,29 +1,59 @@
-"""Рекламный баннер в середине ролика (правило пользователя): паучок говорит «Чуть не забыл!» → ролик
-останавливается, отдельным кадром идёт серый экран с баннером по центру (зелёный фон баннера убирается,
-звук баннера свой) → ролик продолжается с того же места. Параллельно баннеру ролик НЕ идёт.
+"""Рекламный баннер в середине ролика (правило пользователя).
 
-1) Фраза в голос — после voice_prep.py / tighten.py, до рендера сцен (между предложениями середины):
-   python tools/ad_banner.py phrase <папка_ролика> <секунда_вставки>
-   Вставляет шаблон assets/voice/chut_ne_zabyl.mp3 (не озвучивать заново) с паузой 0,32 с перед ним,
-   сдвигает words.json и outro_start.txt, добавляет слова фразы, пишет ad_cut.txt — секунду склейки
-   (0,3 с после «забыл!»). В скрипте ролика на фразу — субтитр «ЧУТЬ НЕ ЗАБЫЛ!» и жест (рука ко лбу).
-2) Вклейка баннера в готовый ролик — после рендера, до версии для телефона:
-   python tools/ad_banner.py insert <ролик.mp4> <секунда_склейки> <выход.mp4> [баннер.mp4] [ширина=1040]
+Между двумя кадрами (сценами) в середине ролика вклеивается ОТДЕЛЬНАЯ вставка: паучок крупно говорит
+«Чуть не забыл!» (шаблон голоса assets/voice/chut_ne_zabyl.mp3, хлопает себя по лбу) и застывает —
+на застывшем кадре по центру экрана идёт баннер рекламодателя (зелёный фон убирается, звук баннера из его
+файла, не приглушать). Ролик под баннером не идёт; после баннера ролик продолжается с того же места.
+
+python tools/ad_banner.py insert <ролик.mp4> <секунда_склейки> <выход.mp4> [баннер.mp4] [ширина=1040]
+Секунда склейки — пауза между предложениями/сценами в середине (лучше на смене сцены).
+Вставка добавляет к ролику ≈1,4 с + длину баннера (7,2 с) — учитывать в длине ролика (≤ 1 мин).
+python tools/ad_banner.py shot <выход.mp4>   — только вставка с паучком (проверить)
 """
-import json
 import os
 import subprocess
 import sys
 
+import cv2
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from voice_prep import ROOT, SR, load  # noqa: E402
+import memory_mg as base  # noqa: E402
+import mg  # noqa: E402
+from mg import track, wobble  # noqa: E402
 
+ROOT = mg.ROOT
 AD = os.path.join(ROOT, "assets", "ads", "natria_vpn.mp4")
 PHRASE = os.path.join(ROOT, "assets", "voice", "chut_ne_zabyl.mp3")
-PHRASE_WORDS = [("Чуть", 0.0, 0.32), ("не", 0.32, 0.44), ("забыл!", 0.44, 0.84)]   # распознано заранее
-GREY = "0x4b4c52"
+FPS = 30
+LEAD = 0.15                      # тишина перед фразой во вставке
+DUR = 1.45                       # длина вставки до застывания (фраза ≈ 0,85 с + реакция)
+
+# настройки вставки для общего движка (как у роликов)
+OUTRO, SHAKES, FLASHES, JUMPS, ALARM, SPOT, SUBS = 99.0, (), ((0.0, 0.1),), [], None, None, []
+CAMERA = [(0.0, (-4.0, 4.6, 1.9, 1.95, 48.0)), (0.35, (2.0, 4.2, 1.85, 1.77, 46.0), "expo"),
+          (DUR, (3.0, 4.15, 1.85, 1.77, 46.0))]
+OFFSET = [(0.0, 0.0), (DUR, 0.0)]
+ARM_R = [(0, 62), (0.18, -78, "back"), (DUR, -76)]          # рука ко лбу: «ой!»
+ARM_L = [(0, 62), (0.3, 20, "back"), (DUR, 22)]             # вторая рука в сторону
+HEAD = [(0, 0), (0.2, -10, "back"), (0.7, 8), (DUR, 6)]
+
+
+class Scene(base.Scene):
+    cfg = sys.modules[__name__]
+
+    def items_for(self, t, cam, it):
+        pass
+
+    def cam(self, t):
+        yaw, dist, hgt, ty, fov = track(CAMERA, t)
+        return mg.Cam(yaw + 0.4 * wobble(t, 1), dist, hgt, ty, fov=fov, roll=0.4 * wobble(t * 0.8, 4))
+
+    def finish(self, frame, t):
+        f = frame.astype(np.float32) * base.VIGNETTE[..., None]
+        fr = np.clip(f, 0, 255).astype(np.uint8)
+        mg.subtitles(fr, t, [(LEAD, "ЧУТЬ НЕ ЗАБЫЛ!", ("ЗАБЫЛ!",))], y=430)   # над баннером, не на паучке
+        return fr
 
 
 def duration(p):
@@ -31,62 +61,52 @@ def duration(p):
                                 capture_output=True, text=True, check=True).stdout)
 
 
-def phrase(folder, t):
-    ph = load(PHRASE)
-    db = 20 * np.log10(np.abs(ph) + 1e-9)
-    loud = np.where(db > -40)[0]
-    a = max(0, loud[0] - int(0.03 * SR))
-    ph = ph[a:loud[-1] + int(0.25 * SR)]                    # без тишины по краям, хвост 0,25 с
-    lead = a / SR
-    ins = np.concatenate([np.zeros(int(0.32 * SR), np.float32), ph, np.zeros(int(0.05 * SR), np.float32)])
-    L = len(ins) / SR
-    for name in ("voice_full.wav", "voice_clean.wav"):
-        p = os.path.join(folder, name)
-        x = load(p)
-        k = int(t * SR)
-        y = np.concatenate([x[:k], ins, x[k:]])
-        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "f32le", "-ar", str(SR), "-ac", "1", "-i", "-", p],
-                       input=y.tobytes(), check=True)
-    wp = os.path.join(folder, "words.json")
-    words = json.load(open(wp))
-    for w in words:
-        if w["s"] >= t:
-            w["s"], w["e"] = round(w["s"] + L, 3), round(w["e"] + L, 3)
-    s0 = t + 0.32 - lead
-    words += [{"w": w, "s": round(s0 + s, 3), "e": round(s0 + e, 3)} for w, s, e in PHRASE_WORDS]
-    words.sort(key=lambda w: w["s"])
-    json.dump(words, open(wp, "w"), ensure_ascii=False, indent=0)
-    op = os.path.join(folder, "outro_start.txt")
-    outro = round(float(open(op).read()) + L, 3)
-    open(op, "w").write(str(outro))
-    cut = round(s0 + PHRASE_WORDS[-1][2] + 0.3, 3)
-    open(os.path.join(folder, "ad_cut.txt"), "w").write(str(cut))
-    print(f"«Чуть не забыл!» с {s0:.2f} с; склейка с баннером {cut} с; концовка с {outro} с; "
-          f"длина {len(y) / SR:.2f} с (+ баннер {duration(AD):.1f} с)")
+def shot(out):
+    """Вставка: паучок говорит «Чуть не забыл!» (со звуком) → mp4; последний кадр → out.png (для застывания)."""
+    wav = out + ".voice.wav"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", PHRASE, "-af",
+                    f"silenceremove=start_periods=1:start_threshold=-45dB,adelay={int(LEAD * 1000)},apad",
+                    "-t", str(DUR), "-ac", "1", "-ar", "44100", wav], check=True)
+    sc = Scene(wav)
+    vid = out + ".video.mp4"
+    wr = mg.Writer(vid, FPS)
+    for i in range(int(DUR * FPS)):
+        fr = sc.finish(sc.draw(i / FPS), i / FPS)
+        wr.write(fr)
+    wr.close()
+    cv2.imwrite(out + ".png", fr)
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", vid, "-i", wav, "-map", "0:v", "-map", "1:a",
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", out], check=True)
+    os.remove(wav)
+    os.remove(vid)
 
 
 def insert(video, t, out, ad=AD, width=1040):
-    """Ролик до t → серый кадр с баннером (свой звук) → ролик с t."""
+    """Ролик до t → вставка «Чуть не забыл!» → застывший кадр + баннер (его звук) → ролик с t."""
+    sh = out + ".shot.mp4"
+    shot(sh)
     d = duration(ad)
+    st = "fps=30,format=yuv420p,setsar=1"
+    au = "aformat=sample_rates=48000:channel_layouts=stereo"
     graph = (f"[0:v]split[va][vb];[0:a]asplit[aa][ab];"
-             f"[va]trim=0:{t},setpts=PTS-STARTPTS[v1];[aa]atrim=0:{t},asetpts=PTS-STARTPTS[a1];"
-             f"[vb]trim=start={t},setpts=PTS-STARTPTS[v3];[ab]atrim=start={t},asetpts=PTS-STARTPTS[a3];"
-             f"color=c={GREY}:s=1080x1920:r=30:d={d},format=yuv420p[g];"
-             f"[1:v]chromakey=0x00FF00:0.25:0.05,despill=green,scale={width}:-1,setpts=PTS-STARTPTS[ad];"
-             f"[g][ad]overlay=(W-w)/2:(H-h)/2:eof_action=pass,fps=30,format=yuv420p,setsar=1[v2];"
-             f"[1:a]aformat=sample_rates=48000:channel_layouts=stereo,apad,atrim=0:{d}[a2];"
-             f"[v1]fps=30,format=yuv420p,setsar=1[v1f];[v3]fps=30,format=yuv420p,setsar=1[v3f];"
-             f"[a1]aformat=sample_rates=48000:channel_layouts=stereo[a1f];"
-             f"[a3]aformat=sample_rates=48000:channel_layouts=stereo[a3f];"
-             f"[v1f][a1f][v2][a2][v3f][a3f]concat=n=3:v=1:a=1[v][a]")
-    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", video, "-i", ad, "-filter_complex", graph,
-                    "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-crf", "15", "-preset", "medium",
-                    "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", out], check=True)
+             f"[va]trim=0:{t},setpts=PTS-STARTPTS,{st}[v1];[aa]atrim=0:{t},asetpts=PTS-STARTPTS,{au}[a1];"
+             f"[vb]trim=start={t},setpts=PTS-STARTPTS,{st}[v4];[ab]atrim=start={t},asetpts=PTS-STARTPTS,{au}[a4];"
+             f"[1:v]{st}[v2];[1:a]{au}[a2];"
+             f"[2:v]loop=loop=-1:size=1,trim=0:{d},setpts=PTS-STARTPTS,{st}[fz];"
+             f"[3:v]chromakey=0x00FF00:0.25:0.05,despill=green,scale={width}:-1,setpts=PTS-STARTPTS[ad];"
+             f"[fz][ad]overlay=(W-w)/2:(H-h)/2:eof_action=pass,{st}[v3];"
+             f"[3:a]{au},apad,atrim=0:{d}[a3];"
+             f"[v1][a1][v2][a2][v3][a3][v4][a4]concat=n=4:v=1:a=1[v][a]")
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", video, "-i", sh, "-i", sh + ".png", "-i", ad,
+                    "-filter_complex", graph, "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-crf", "15",
+                    "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", out], check=True)
+    os.remove(sh)
+    os.remove(sh + ".png")
 
 
 if __name__ == "__main__":
     cmd, a = sys.argv[1], sys.argv[2:]
-    if cmd == "phrase":
-        phrase(a[0], float(a[1]))
+    if cmd == "shot":
+        shot(a[0])
     else:
         insert(a[0], float(a[1]), a[2], *(a[3:4] or [AD]), *[int(x) for x in a[4:5]])
