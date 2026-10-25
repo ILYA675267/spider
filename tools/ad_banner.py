@@ -7,13 +7,17 @@
 после баннера камера тем же облётом возвращается в исходный ракурс, и ролик продолжается с того же места.
 Вставка рисуется сценой самого ролика (комната, цвет, вставки на месте замирают), поэтому стыков не видно.
 
-python tools/ad_banner.py insert <ролик.mp4> <секунда_склейки> <выход.mp4> <модуль_ролика> [секунда_в_сцене]
-   [баннер.mp4] [ширина=1040]
+python tools/ad_banner.py insert <ролик.mp4> <секунда_склейки | mid> <выход.mp4> <модуль_ролика> [секунда_в_сцене]
+   [баннер.mp4] [ширина=1150]
 Секунда склейки — пауза между предложениями в середине, когда камера стоит спокойно (не во время облёта).
+mid — баннер строго посередине итогового ролика (правило пользователя): склейка в паузе между словами
+(work/<тема>/words.json), ближайшей к точке, где середина баннера совпадает с серединой ролика.
+Баннер — не меньше 25% экрана (правило пользователя): ширина 1150, края срезаются до 1080 → 1080×488 = 25,4%.
 Секунда в сцене — то же время по сценарию модуля (по умолчанию равна секунде склейки; отличается только
 для пробы на вырезанном куске). Вставка добавляет к ролику ≈ 9 с (фраза + баннер 7,2 с) — учитывать в длине.
 """
 import importlib
+import json
 import math
 import os
 import subprocess
@@ -129,7 +133,7 @@ def shot(out, modname, t0):
     os.remove(vid)
 
 
-def insert(video, t, out, modname, t0=None, ad=AD, width=1040):
+def insert(video, t, out, modname, t0=None, ad=AD, width=1150):
     """Ролик до t → облёт к паучку, «Чуть не забыл!» → баннер по центру (его звук), паучок под ним
     жестикулирует → облёт обратно → ролик с t."""
     t0 = t if t0 is None else t0
@@ -144,7 +148,7 @@ def insert(video, t, out, modname, t0=None, ad=AD, width=1040):
              f"[aa]atrim=0:{t},asetpts=PTS-STARTPTS,{au},afade=t=out:st={t - 0.12}:d=0.12[a1];"
              f"[vb]trim=start={t},setpts=PTS-STARTPTS,{st}[v4];"
              f"[ab]atrim=start={t},asetpts=PTS-STARTPTS,{au},afade=t=in:d=0.12[a4];"
-             f"[2:v]chromakey=0x00FF00:0.25:0.05,despill=green,scale={width}:-1,setpts=PTS-STARTPTS+{bd}/TB[ad];"
+             f"[2:v]chromakey=0x00FF00:0.25:0.05,despill=green,scale={width}:-2,crop=min(iw\\,{mg.W}):ih,setpts=PTS-STARTPTS+{bd}/TB[ad];"
              f"[1:v]{st}[sv0];[sv0][ad]overlay=(W-w)/2:(H-h)/2:eof_action=pass,{st}[sv];"
              f"[2:a]{au},volume={AD_GAIN},adelay={int(bd * 1000)}:all=1[ba];[1:a]{au}[pa];"
              f"[pa][ba]amix=inputs=2:normalize=0:duration=first[sa];"
@@ -155,8 +159,24 @@ def insert(video, t, out, modname, t0=None, ad=AD, width=1040):
     os.remove(sh)
 
 
+def middle(video):
+    """Секунда склейки, при которой баннер стоит посередине итогового ролика: пауза между словами (≥ 0,25 с,
+    до концовки), ближайшая к расчётной точке. Время ролика и слов совпадает (ролик собран по words.json)."""
+    topic = os.path.splitext(os.path.basename(video))[0]
+    folder = os.path.join(ROOT, "work", topic)
+    words = json.load(open(os.path.join(folder, "words.json")))
+    outro = float(open(os.path.join(folder, "outro_start.txt")).read())
+    bd = DUR - 1 / FPS
+    target = (duration(video) + TOTAL) / 2 - bd - AD_DUR / 2
+    gaps = [((a["e"] + b["s"]) / 2) for a, b in zip(words, words[1:]) if b["s"] - a["e"] >= 0.25 and b["s"] < outro - 1]
+    t = min(gaps, key=lambda g: abs(g - target))
+    print(f"середина: расчёт {target:.2f} с, пауза {t:.2f} с")
+    return t
+
+
 if __name__ == "__main__":
     cmd, a = sys.argv[1], sys.argv[2:]
     if cmd == "insert":
-        insert(a[0], float(a[1]), a[2], a[3], t0=float(a[4]) if len(a) > 4 else None,
-               ad=a[5] if len(a) > 5 else AD, width=int(a[6]) if len(a) > 6 else 1040)
+        t = middle(a[0]) if a[1] == "mid" else float(a[1])
+        insert(a[0], t, a[2], a[3], t0=float(a[4]) if len(a) > 4 else None,
+               ad=a[5] if len(a) > 5 else AD, width=int(a[6]) if len(a) > 6 else 1150)
