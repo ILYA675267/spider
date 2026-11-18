@@ -441,7 +441,7 @@ class Scene(base.Scene):
                 self.add_bb(it, cam, q, 0.26 * ka, T["dead"] if dead else T["apps"][i % 6], anchor=(0.5, 0.5))
             kw = pop(t, 22.5, 27.7, 0.35, 0.25)
             if kw > 0:
-                self.add_bb(it, cam, P(y0, -0.85, 0.85), 0.1 * kw, T["weekly"], anchor=(0.5, 0.5))
+                self.add_bb(it, cam, P(y0, -1.1, 1.3), 0.1 * kw, T["weekly"], anchor=(0.5, 0.5))
             kf = pop(t, 27.8, AD_CUT + 0.3, 0.35, 0.2)
             if kf > 0:
                 self.add_bb(it, cam, P(y0, -1.05, 0.95), 0.21 * kf, T["free"], anchor=(0.5, 0.5))
