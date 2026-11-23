@@ -2,16 +2,16 @@
 
 В середине ролика камера просто меняет ракурс (облёт в той же комнате, без склейки и растворения): паучок
 крупно говорит «Чуть не забыл!» (голос пользователя assets/voice/chut_ne_zabyl.mp3, рука вверх, субтитр
-сверху), затем по центру экрана идёт баннер рекламодателя (зелёный фон убирается, звук баннера из его файла,
+сверху), затем по центру экрана идёт баннер рекламодателя (однотонный фон убирается, звук баннера из его файла,
 не приглушать), а паучок под баннером спокойно жестикулирует и покачивает головой. Ролик под баннером не идёт;
 после баннера камера тем же облётом возвращается в исходный ракурс, и ролик продолжается с того же места.
 Вставка рисуется сценой самого ролика (комната, цвет, вставки на месте замирают), поэтому стыков не видно.
 
 python tools/ad_banner.py insert <ролик.mp4> <секунда_склейки> <выход.mp4> <модуль_ролика> [секунда_в_сцене]
-   [баннер.mp4] [ширина=1134]
+   [баннер.mp4] [ширина по умолчанию зависит от баннера]
 Секунда склейки — пауза между предложениями в середине, когда камера стоит спокойно (не во время облёта).
 Секунда в сцене — то же время по сценарию модуля (по умолчанию равна секунде склейки; отличается только
-для пробы на вырезанном куске). Вставка добавляет к ролику ≈ 9 с (фраза + баннер 7,2 с) — учитывать в длине.
+для пробы на вырезанном куске). Вставка добавляет к ролику ≈ 8,6 с с текущим баннером — учитывать в длине.
 """
 import importlib
 import math
@@ -28,7 +28,7 @@ import mg  # noqa: E402
 from mg import track, wobble  # noqa: E402
 
 ROOT = mg.ROOT
-AD = os.path.join(ROOT, "assets", "ads", "natria_vpn.mp4")
+AD = os.path.join(ROOT, "assets", "ads", "Gidpak1.mp4")
 PHRASE = os.path.join(ROOT, "assets", "voice", "chut_ne_zabyl.mp3")
 FPS = 30
 FLY = 0.6                        # облёт камеры туда и обратно
@@ -129,7 +129,14 @@ def shot(out, modname, t0):
     os.remove(vid)
 
 
-def insert(video, t, out, modname, t0=None, ad=AD, width=1134):
+def banner_filters(ad, width):
+    if os.path.basename(ad).lower() == "gidpak1.mp4":
+        return (f"crop=2304:800:128:320,scale={width or 1080}:552,format=rgba,"
+                "colorkey=0xEC1C1C:0.19:0.07")
+    return f"chromakey=0x00FF00:0.25:0.05,despill=green,scale={width or 1134}:-1"
+
+
+def insert(video, t, out, modname, t0=None, ad=AD, width=None):
     """Ролик до t → облёт к паучку, «Чуть не забыл!» → баннер по центру (его звук), паучок под ним
     жестикулирует → облёт обратно → ролик с t."""
     t0 = t if t0 is None else t0
@@ -138,15 +145,16 @@ def insert(video, t, out, modname, t0=None, ad=AD, width=1134):
     shot(sh, modname, t0)
     st = "fps=30,format=yuv420p,setsar=1"
     au = "aformat=sample_rates=48000:channel_layouts=stereo"
+    art = banner_filters(ad, width)
     bd = DUR - 1 / FPS                                 # баннер во вставке (без её нулевого кадра)
     graph = (f"[0:v]split[va][vb];[0:a]asplit[aa][ab];"
              f"[va]trim=0:{t},setpts=PTS-STARTPTS,{st}[v1];"
              f"[aa]atrim=0:{t},asetpts=PTS-STARTPTS,{au},afade=t=out:st={t - 0.12}:d=0.12[a1];"
              f"[vb]trim=start={t},setpts=PTS-STARTPTS,{st}[v4];"
              f"[ab]atrim=start={t},asetpts=PTS-STARTPTS,{au},afade=t=in:d=0.12[a4];"
-             f"[2:v]chromakey=0x00FF00:0.25:0.05,despill=green,scale={width}:-1,setpts=PTS-STARTPTS+{bd}/TB[ad];"
+             f"[2:v]{art},setpts=PTS-STARTPTS+{bd}/TB[ad];"
              f"[1:v]{st}[sv0];[sv0][ad]overlay=(W-w)/2:(H-h)/2:eof_action=pass,{st}[sv];"
-             f"[2:a]{au},volume={AD_GAIN},adelay={int(bd * 1000)}:all=1[ba];[1:a]{au}[pa];"
+             f"[2:a]{au},volume={AD_GAIN},alimiter=limit=0.89:level=0:latency=1,adelay={int(bd * 1000)}:all=1[ba];[1:a]{au}[pa];"
              f"[pa][ba]amix=inputs=2:normalize=0:duration=first[sa];"
              f"[v1][a1][sv][sa][v4][a4]concat=n=3:v=1:a=1[v][a]")
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", video, "-i", sh, "-i", ad,
@@ -159,4 +167,4 @@ if __name__ == "__main__":
     cmd, a = sys.argv[1], sys.argv[2:]
     if cmd == "insert":
         insert(a[0], float(a[1]), a[2], a[3], t0=float(a[4]) if len(a) > 4 else None,
-               ad=a[5] if len(a) > 5 else AD, width=int(a[6]) if len(a) > 6 else 1134)
+               ad=a[5] if len(a) > 5 else AD, width=int(a[6]) if len(a) > 6 else None)
